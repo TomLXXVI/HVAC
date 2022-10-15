@@ -17,6 +17,27 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="\compressor_data\VZH088CGM.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\compressor_data\ZPV0962E-4E9.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\compressor_data\ZR144KCE-TFD.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
       </map>
     </option>
   </component>
