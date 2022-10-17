@@ -24,10 +24,13 @@ class HumidAir:
     }
 
     def __init__(self, **input_qties: Quantity):
+        P = input_qties.pop('P', None)
+        if P is not None: self.P = P
         keys = list(input_qties.keys())
         qties = list(input_qties.values())
         values = [qty.to(self._coolprop_qties[key][1]).m for qty, key in zip(qties, keys)]
         self._inputs = {keys[0]: values[0], keys[1]: values[1]}
+        # only the first 2 input quantities are considered, should there be more than 2 given
 
     @property
     def P(self) -> Quantity:

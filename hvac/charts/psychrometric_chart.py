@@ -36,18 +36,18 @@ class PsychrometricChart:
         # lines of constant relative humidity
         for RH in np.arange(0.1, 1, 0.1):
             W = HAPropsSI("W", "R", RH, "P", self.P.to('Pa').magnitude, "T", T_db_vec)
-            self.chart.axes.show(T_db_vec - 273.15, W, color='k', lw=0.5)
+            self.chart.axes.plot(T_db_vec - 273.15, W, color='k', lw=0.5)
 
         # saturation curve
         W_sat = HAPropsSI("W", "R", 1, "P", self.P.to('Pa').magnitude, "T", T_db_vec)
-        self.chart.axes.show(T_db_vec - 273.15, W_sat, color='k', lw=1.5)
+        self.chart.axes.plot(T_db_vec - 273.15, W_sat, color='k', lw=1.5)
 
         # lines of constant v_da
         for v_da in np.arange(0.69, 0.961, 0.01):
             R = np.linspace(0, 1)
             W = HAPropsSI("W", "R", R, "P", self.P.to('Pa').magnitude, "Vda", v_da)
             T_db = HAPropsSI("Tdb", "R", R, "P", self.P.to('Pa').magnitude, "Vda", v_da)
-            self.chart.axes.show(T_db - 273.15, W, color='b', lw=1.5 if abs(v_da % 0.05) < 0.001 else 0.5)
+            self.chart.axes.plot(T_db - 273.15, W, color='b', lw=1.5 if abs(v_da % 0.05) < 0.001 else 0.5)
 
         # lines of constant T_wb
         for T_wb_C in np.arange(-16, 33, 2):
@@ -56,7 +56,7 @@ class PsychrometricChart:
             R = np.linspace(0.0, 1)
             T_db = HAPropsSI("Tdb", "R", R, "P", self.P.to('Pa').magnitude, "Twb", T_wb_C + 273.15)
             W = HAPropsSI("W", "R", R, "P", self.P.to('Pa').magnitude, "Tdb", T_db)
-            self.chart.axes.show(T_db - 273.15, W, color='r', lw=1.5 if abs(T_wb_C % 10) < 0.001 else 0.5)
+            self.chart.axes.plot(T_db - 273.15, W, color='r', lw=1.5 if abs(T_wb_C % 10) < 0.001 else 0.5)
 
         self.chart.x1.add_title('dry bulb temperature, °C')
         self.chart.y1.add_title('humidity ratio, kg_H2O/kg_da')
