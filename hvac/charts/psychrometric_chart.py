@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Tuple
 from dataclasses import dataclass
 import os
 import pickle
@@ -21,15 +21,15 @@ class PsychrometricChart:
     CHARTS_PATH = os.path.abspath('./charts')
     P = STANDARD_PRESSURE
 
-    def __init__(self):
+    def __init__(self, fig_size: Optional[Tuple[int, int]] = None):
         self.chart: Optional[LineChart] = None
         try:
-            self._load()
+            self._load(fig_size)
         except FileNotFoundError:
-            self._create()
+            self._create(fig_size if fig_size is not None else (12, 8), 96)
             self._dump()
 
-    def _create(self, fig_size=(12, 8), dpi=96):
+    def _create(self, fig_size, dpi):
         self.chart = LineChart(size=fig_size, dpi=dpi)
         T_db_vec = np.linspace(-30, 55) + 273.15
 
@@ -106,21 +106,29 @@ class PsychrometricChart:
             style_props={'marker': 'o', 'color': 'orange', 'lw': 2.0}
         )
 
+    def plot_line(
+            self,
+            name: str,
+            start_point: StatePoint,
+            end_point: StatePoint
+    ):
+        x_data = [start_point.T_db.to('degC').m, end_point.T_db.to('degC').m]
+        y_data = [start_point.W.to('kg/kg').m, end_point.W.to('kg/kg').m]
+
+        self.chart.add_xy_data(
+            label=name,
+            x1_values=x_data,
+            y1_values=y_data,
+            style_props={'color': 'orange'}
+        )
+
     def plot_space_condition_line(
             self,
             start_point: StatePoint,
             end_point: StatePoint,
             space_point: Optional[StatePoint] = None,
     ):
-        x_data = [start_point.T_db.to('degC').m, end_point.T_db.to('degC').m]
-        y_data = [start_point.W.to('kg/kg').m, end_point.W.to('kg/kg').m]
-
-        self.chart.add_xy_data(
-            label='space condition line',
-            x1_values=x_data,
-            y1_values=y_data,
-            style_props={'color': 'orange'}
-        )
+        self.plot_line('space condition line', start_point, end_point)
         self.chart.add_xy_data(
             label='space point',
             x1_values=[space_point.T_db.to('degC').m],
@@ -128,12 +136,12 @@ class PsychrometricChart:
             style_props={'marker': 'o', 'color': 'orange'}
         )
 
-    def plot_curve(self, state_points: List[StatePoint]):
+    def plot_curve(self, name: str, state_points: List[StatePoint]):
         x_data = [p.T_db.to('degC').m for p in state_points]
         y_data = [p.W.to('kg/kg').m for p in state_points]
 
         self.chart.add_xy_data(
-            label='curve',
+            label=name,
             x1_values=x_data,
             y1_values=y_data,
             style_props={'color': 'orange'}
@@ -146,9 +154,12 @@ class PsychrometricChart:
         fp = os.path.join(self.CHARTS_PATH, 'psych_chart.pickle')
         pickle.dump(self.chart.figure, open(fp, 'wb'))
 
-    def _load(self):
+    def _load(self, fig_size: Tuple[int, int]):
         if not os.path.exists(self.CHARTS_PATH):
             os.makedirs(self.CHARTS_PATH)
         fp = os.path.join(self.CHARTS_PATH, 'psych_chart.pickle')
         fig = pickle.load(open(fp, 'rb'))
         self.chart = LineChart(constructs=(fig, fig.axes[0]))
+        if fig_size is not None:
+            self.chart.figure.set_figwidth(fig_size[0])
+            self.chart.figure.set_figheight(fig_size[1])

@@ -692,8 +692,11 @@ class Fan(Process):
             air_out: Optional[HumidAir] = None,
             fan_efficiency: Optional[Quantity] = None,
             motor_efficiency: Optional[Quantity] = None,
-            fan_pressure: Optional[Quantity] = None
+            fan_pressure: Optional[Quantity] = None,
+            m_da: Optional[Quantity] = None
     ):
+        self.m_da = m_da
+
         # Set up the equation that describe heating of air due to fan inefficiency
         equations = {
             'fan_heating': Equation(
@@ -752,3 +755,14 @@ class Fan(Process):
             W_ai = self._air_out.W
             self._air_in = HumidAir(Tdb=T_ai, W=W_ai)
         return self._air_in
+
+    @property
+    def Q(self) -> Quantity:
+        T_ai = self.air_in.Tdb.to('K')
+        T_ao = self.air_out.Tdb.to('K')
+        dT = T_ao - T_ai
+        cp_ai = self.air_in.cp
+        cp_ao = self.air_out.cp
+        cp = (cp_ai + cp_ao) / 2
+        Q = self.m_da * cp * dT
+        return Q

@@ -52,7 +52,7 @@ class SpaceConditionLine:
         self.equation = Equation(
             variables=[
                 Variable(name='K', value=self.K.m, unit=self.K.units),
-                Variable(name='T_ao', value=self.space_air.T_db.m, unit=self.space_air.T_db.units),
+                Variable(name='T_ao', value=self.space_air.Tdb.m, unit=self.space_air.Tdb.units),
                 Variable(name='W_ao', value=self.space_air.W.m, unit=self.space_air.W.units),
                 Variable(name='T_ai', unit='K'),
                 Variable(name='W_ai', unit='kg / kg')
@@ -87,7 +87,7 @@ class SpaceConditionLine:
         -------
         StatePoint
         """
-        T_ai_start = self.space_air.T_db - dT_db
+        T_ai_start = self.space_air.Tdb - dT_db
         W_ai_start = self.W_ai(T_ai_start)
         return StatePoint(T_ai_start, W_ai_start)
 
@@ -104,7 +104,7 @@ class SpaceConditionLine:
         -------
         StatePoint
         """
-        T_ai_end = self.space_air.T_db + dT_db
+        T_ai_end = self.space_air.Tdb + dT_db
         W_ai_end = self.W_ai(T_ai_end)
         return StatePoint(T_ai_end, W_ai_end)
 
@@ -116,4 +116,4 @@ class SpaceConditionLine:
         -------
         StatePoint
         """
-        return StatePoint(self.space_air.T_db, self.space_air.W)
+        return StatePoint(self.space_air.Tdb, self.space_air.W)
