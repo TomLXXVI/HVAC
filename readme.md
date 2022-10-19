@@ -4,3 +4,4 @@ This repository contains a main package `hvac`, which will be further expanded i
 
 The application of the packages will be demonstrated by subject in a number of Jupyter Books. Currently available are:
 - [Vapor Compression Refrigeration Calculations with Python](https://tomlxxvi.github.io/Vapor-Compression-Refrigeration/)
+- [Air Conditioning Calculations with Python](https://tomlxxvi.github.io/Air-Conditioning/)
