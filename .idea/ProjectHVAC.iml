@@ -3,6 +3,7 @@
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$" />
     <content url="file://$MODULE_DIR$/../jbAirConditioning" />
+    <content url="file://$MODULE_DIR$/../jbFluidFlow" />
     <content url="file://$MODULE_DIR$/../jbVCRefrigeration" />
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
