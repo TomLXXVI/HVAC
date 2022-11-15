@@ -45,11 +45,9 @@ class ElbowA7A(AbstractFitting):
     _theta = [0, 20, 30, 45, 60, 75, 90, 110, 130, 150, 180]
     _k_theta = [0, 0.31, 0.45, 0.60, 0.78, 0.90, 1.00, 1.13, 1.20, 1.28, 1.40]
 
-    def __init__(self, duct: Duct, radius: Quantity, theta: Quantity = Q_(90.0, 'deg'), ID: str = ''):
+    def __init__(self, duct: Duct, R_on_D: Quantity, theta: Quantity = Q_(90.0, 'deg'), ID: str = ''):
         super().__init__(ID)
-        D = duct.cross_section.equivalent_diameter.to('m').magnitude
-        radius = radius.to('m').magnitude
-        self.R_on_D = radius / D
+        self.R_on_D = R_on_D.to('frac').magnitude
         self.theta = theta.to('deg').magnitude
         self.Pv = duct.velocity_pressure.to('Pa').magnitude
 
@@ -911,7 +909,7 @@ class ConvergingJunctionA10B(AbstractFitting):
 
     @property
     def zeta_s(self) -> float:
-        # refer `zeta_s` to velocity in straight duct
+        # refer `zeta_c` to velocity in straight duct
         zeta = convert_zeta(self.zeta_c, self.duct_c, self.duct_s)
         return zeta
 
@@ -1502,7 +1500,12 @@ class DivergingJunctionA11A(AbstractFitting):
         Vc = duct_c.volume_flow_rate.to('m ** 3 / s').magnitude
         self.Vb_on_Vc = Vb / Vc
         theta = theta.to('deg')
-        self.interp_zeta_c = interpolate.interp1d(self._vs_on_vc, self._zeta_c)
+        self.interp_zeta_c = interpolate.interp1d(
+            self._vs_on_vc,
+            self._zeta_c,
+            bounds_error=False,
+            fill_value=(self._zeta_c[0], self._zeta_c[-1])
+        )
         if theta == 30 * u.deg:
             self.interp_zeta_b = interpolate.interp2d(self._Vb_on_Vc, self._Ab_on_Ac, self._zeta_b_wye30)
         elif theta == 45 * u.deg:

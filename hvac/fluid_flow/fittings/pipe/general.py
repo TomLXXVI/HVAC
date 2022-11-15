@@ -17,11 +17,13 @@ class FlowCoefficient:
 
     @classmethod
     def to_Kv(cls, Av: float) -> float:
-        return Av * 3.6e5 * math.sqrt(10) / math.sqrt(cls.rho_15degC)
+        Kv = Av * 3.6e5 * math.sqrt(10) / math.sqrt(cls.rho_15degC)
+        return Kv
 
     @classmethod
     def to_Av(cls, Kv: float) -> float:
-        return Kv * math.sqrt(cls.rho_15degC) / (3.6e5 * math.sqrt(10))
+        Av = Kv * math.sqrt(cls.rho_15degC) / (3.6e5 * math.sqrt(10))
+        return Av
 
     @classmethod
     def get_Kv(cls, volume_flow_rate: Quantity, pressure_drop: Quantity, fluid: Optional[FluidState] = None) -> float:
@@ -31,7 +33,8 @@ class FlowCoefficient:
         if isinstance(fluid, FluidState):
             rho_fluid = fluid.rho.to('kg / m ** 3').magnitude
             specific_gravity = rho_fluid / cls.rho_15degC
-        return V / math.sqrt(dp / specific_gravity)
+        Kv = V / math.sqrt(dp / specific_gravity)
+        return Kv
 
 
 class ResistanceCoefficient:
@@ -39,7 +42,8 @@ class ResistanceCoefficient:
     @staticmethod
     def from_Av(Av: float, diameter: Quantity) -> float:
         D = diameter.to('m').magnitude
-        return math.pi ** 2 * D ** 4 / (8.0 * Av ** 2)
+        zeta = math.pi ** 2 * D ** 4 / (8.0 * Av ** 2)
+        return zeta
 
     @staticmethod
     def from_Kv(Kv: float, diameter: Quantity) -> float:

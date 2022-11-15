@@ -738,12 +738,12 @@ class DuctNetwork(Network):
     def get_balancing_damper_table(self) -> pd.DataFrame:
         table = {
             'volume damper ID': [],
-            'angle': [],
+            'set angle': [],
             'zeta': []
         }
         for damper in self.balancing_dampers.values():
             table['volume damper ID'].append(damper.ID)
-            table['angle'].append(damper.theta)
+            table['set angle'].append(damper.theta)
             table['zeta'].append(damper.zeta)
         return pd.DataFrame(table)
 

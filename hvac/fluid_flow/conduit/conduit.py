@@ -160,7 +160,7 @@ class Conduit(AbstractConduit):
         obj.wall_roughness = wall_roughness
         obj.fluid = fluid
         obj._cross_section = cross_section
-        if volume_flow_rate < 0.0:
+        if (volume_flow_rate is not None) and (volume_flow_rate < 0.0):
             obj._volume_flow_rate = abs(volume_flow_rate)
             obj.flow_sign = FlowSign.COUNTERCLOCKWISE
         else:
@@ -205,13 +205,26 @@ class Conduit(AbstractConduit):
         obj.machine_coefficients = kwargs.get('machine_coefficients', obj.machine_coefficients)
         return obj
 
+    def _calculate_darcy_friction_factor(self, Re: float, e: float) -> float:
+        f = self._serghide(Re, e)
+        return f
+
     @staticmethod
-    def _calculate_darcy_friction_factor(Re: float, e: float):
+    def _churchill(Re: float, e: float) -> float:
+        d = (7 / Re) ** 0.9 + 0.27 * e
+        A = (2.457 * math.log(1 / d)) ** 16
+        B = (37.530 / Re) ** 16
+        f = 8 * ((8 / Re) ** 12 + 1 / (A + B) ** 1.5) ** (1 / 12)
+        return f
+
+    @staticmethod
+    def _serghide(Re: float, e: float) -> float:
         # equation of Serghide
         f1 = -2.0 * math.log10(e / 3.7 + 12.0 / Re)
         f2 = -2.0 * math.log10(e / 3.7 + 2.51 * f1 / Re)
         f3 = -2.0 * math.log10(e / 3.7 + 2.51 * f2 / Re)
-        return (f1 - (f2 - f1) ** 2.0 / (f3 - 2.0 * f2 + f1)) ** -2.0
+        f = (f1 - (f2 - f1) ** 2.0 / (f3 - 2.0 * f2 + f1)) ** -2.0
+        return f
 
     def _calculate_equivalent_diameter(self):
         l = self.length.to('m').magnitude

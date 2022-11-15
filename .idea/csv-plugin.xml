@@ -3,14 +3,7 @@
   <component name="CsvFileAttributes">
     <option name="attributeMap">
       <map>
-        <entry key="C:\Users\Tom\PycharmProjects\jbFluidFlow\networks\closed-pipe-network-design-tmp.csv">
-          <value>
-            <Attribute>
-              <option name="separator" value="," />
-            </Attribute>
-          </value>
-        </entry>
-        <entry key="C:\Users\Tom\PycharmProjects\jbFluidFlow\networks\ex1_closed-pipe-network-design.csv">
+        <entry key="\scripts\heat_exchangers\compressor_data\DANFOSS-VZH052CG.csv">
           <value>
             <Attribute>
               <option name="separator" value="," />

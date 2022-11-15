@@ -1,3 +1,9 @@
+from .general import (
+    FlowCoefficient,
+    ResistanceCoefficient,
+    DuctFitting
+)
+
 from .smacna import (
     ElbowA7A,
     ElbowA7B,
