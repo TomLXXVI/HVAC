@@ -148,7 +148,7 @@ class Conduit(AbstractConduit):
             cls,
             length: Quantity,
             wall_roughness: Quantity,
-            fluid: Fluid,
+            fluid: FluidState,
             cross_section: TCrossSection,
             volume_flow_rate: Optional[Quantity] = None,
             pressure_drop: Optional[Quantity] = None,

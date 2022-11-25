@@ -36,7 +36,7 @@ class _ExteriorSurface(Surface):
         self.irradiance_profile = AnisotropicSkyModel.daily_profile(
             location=climate_data.location,
             surface=self,
-            irradiance_hor_profile=climate_data.irradiance_profile
+            irradiance_hor_profile=climate_data.irr_profile
         )
         self.T_sol_profile = self._get_sol_air_temperature_profile()
         self._T_sol_fun = self._interpolate_sol_air_temperature()

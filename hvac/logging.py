@@ -3,6 +3,12 @@ from logging import StreamHandler, Logger
 
 
 class ModuleLogger:
+    DEBUG = logging.DEBUG
+    INFO = logging.INFO
+    WARNING = logging.WARNING
+    ERROR = logging.ERROR
+    CRITICAL = logging.CRITICAL
+
     # specify the formatting of the log records
     FORMATTER = logging.Formatter(
         '[%(name)s | %(levelname)s] %(message)s'

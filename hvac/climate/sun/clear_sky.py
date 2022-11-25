@@ -128,10 +128,10 @@ class ClearSkyModel:
         -------
         A dictionary with:
         't': list of hour of the day as datetime object
-        'I_beam': list of beam irradiance as Quantity object
-        'I_dir_hor'
-        'I_dif': list of diffuse irradiance as Quantity object
-        'I_glo_hor': list of global irradiance as Quantity object
+        'beam': list of beam irradiance as Quantity object
+        'dir_hor'
+        'dif': list of diffuse irradiance as Quantity object
+        'glo_hor': list of global irradiance as Quantity object
         """
         t_axis = [Time(h, 0, 0) for h in range(24)]
         t_axis.append(Time(23, 59, 59))
@@ -148,8 +148,8 @@ class ClearSkyModel:
             I_glo_hor_profile.append(I_glo_hor)
         return {
             't': t_axis,
-            'I_beam': [I_beam.to('W / m ** 2') for I_beam in I_beam_profile],
-            'I_dir_hor': [I_dir_hor.to('W / m ** 2') for I_dir_hor in I_dir_hor_profile],
-            'I_dif': [I_dif.to('W / m ** 2') for I_dif in I_dif_profile],
-            'I_glo_hor': [I_glo_hor.to('W / m ** 2') for I_glo_hor in I_glo_hor_profile]
+            'beam': [I_beam.to('W / m ** 2') for I_beam in I_beam_profile],
+            'dir_hor': [I_dir_hor.to('W / m ** 2') for I_dir_hor in I_dir_hor_profile],
+            'dif': [I_dif.to('W / m ** 2') for I_dif in I_dif_profile],
+            'glo_hor': [I_glo_hor.to('W / m ** 2') for I_glo_hor in I_glo_hor_profile]
         }

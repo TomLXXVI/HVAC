@@ -183,12 +183,12 @@ class ClimateData:
             Outside air wet-bulb design temperature (mean coincident wet-bulb
             temperature).
         tau_beam :
-            Optical depth of the atmosphere at the given location for solar beam
-            radiation on the given design day. Used to calculate clear-sky solar
-            irradiance.
+            Clear-sky optical depth of the atmosphere at the given location for
+            solar beam radiation on the given design day. Used to calculate
+            clear-sky solar irradiance.
         tau_dif :
-            Optical depth of the atmosphere at the given location for solar
-            diffuse radiation on the given design day. Used to calculate
+            Clear-sky optical depth of the atmosphere at the given location for
+            solar diffuse radiation on the given design day. Used to calculate
             clear-sky solar irradiance.
         """
         obj = cls()
@@ -268,7 +268,7 @@ class ClimateData:
         return self._dd_Tpf_object.Twb_profile
 
     @property
-    def irradiance_profile(self) -> Dict[str, List[Any]]:
+    def irr_profile(self) -> Dict[str, List[Any]]:
         """
         Get daily profile of solar irradiance based on ASHRAE's Clear-Sky Model.
 

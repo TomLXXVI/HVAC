@@ -148,7 +148,7 @@ class LineChart(Chart):
                     self.y2.axes.plot(
                         dataset['x1_values'],
                         dataset['y2_values'],
-                        label,
+                        label=label,
                         **dataset['style_props']
                     )
 

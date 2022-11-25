@@ -56,7 +56,7 @@ class Y1Axis(Axis):
 
 class X2Axis(Axis):
     
-    def __int__(self, axes: Axes):
+    def __init__(self, axes: Axes):
         super().__init__(axes)
         self._twin_axes = axes.twiny()
         self._twin_axes.xaxis.set_ticks_position('bottom')
@@ -81,7 +81,7 @@ class X2Axis(Axis):
 
 class Y2Axis(Axis):
     
-    def __int__(self, axes: Axes):
+    def __init__(self, axes: Axes):
         super().__init__(axes)
         self._twin_axes = axes.twinx()
 
