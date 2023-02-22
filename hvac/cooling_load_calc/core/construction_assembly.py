@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from typing import Tuple, Dict, List
+from typing import Tuple, Dict, List, cast
 import math
+from copy import deepcopy
 from dataclasses import dataclass
 from enum import Enum
+import shelve
 from hvac import Quantity
 
 
@@ -281,6 +283,7 @@ class AirSpace(ThermalComponent):
         ID: str
             Name to identify the airspace in a building component.
         geometry: Geometry
+            Note: the maximum allowable thickness of the airspace is 0.3 m
         dT: Quantity
             The temperature difference across the airspace.
         heat_flow_direction: HeatFlowDirection
@@ -291,8 +294,9 @@ class AirSpace(ThermalComponent):
             The mean thermodynamic temperature of the surfaces and the airspace.
         surface_emissivities: Tuple[Quantity, Quantity], (Q_(0.9, 'frac'), Q_(0.9, 'frac'))
             Emissivity of surfaces on both sides of the airspace.
-        inclination_angle: Quantity
+        inclination_angle: Quantity, optional
             Inclination angle of the airspace with respect to the horizontal.
+            Value can be between 0° and 90° included.
 
         Returns
         -------
@@ -343,7 +347,10 @@ class AirSpace(ThermalComponent):
         return Q_(ha, 'W / (m ** 2 * K)')
 
     @staticmethod
-    def _determine_hr(Tmn: Quantity, surface_emissivities: Tuple[Quantity, Quantity]) -> Quantity:
+    def _determine_hr(
+        Tmn: Quantity,
+        surface_emissivities: Tuple[Quantity, Quantity]
+    ) -> Quantity:
         SIGMA = Q_(5.67e-8, 'W / (m ** 2 * K ** 4)')
         hro = 4 * SIGMA * Tmn.to('K') ** 3
         e1, e2 = surface_emissivities
@@ -393,7 +400,7 @@ class SurfaceLayer(ThermalComponent):
             The hemispherical emissivity of the surface.
         internal_surface: bool, default True
             Indicates if the surface is an internal surface or not.
-        wind_speed: Quantity
+        wind_speed: Quantity, default 4 m/s
             Wind speed. Only used for an external surface (`internal_surface
             = False`)
 
@@ -485,6 +492,7 @@ class ConstructionAssembly:
     A flat construction assembly is composed of layered `ThermalComponent` objects (
     `BuildingComponent`, `AirSpace`, and/or `SurfaceLayer` objects).
     """
+    db_path: str
 
     def __init__(self):
         self.ID: str = ''
@@ -492,7 +500,14 @@ class ConstructionAssembly:
         self._thermal_component: ThermalComponent = ThermalComponent()
 
     @classmethod
-    def create(cls, ID: str, layers: List[ThermalComponent]) -> ConstructionAssembly:
+    def create(
+        cls,
+        ID: str,
+        layers: list[ThermalComponent] | None = None,
+        U: Quantity | None = None,
+        R: Quantity | None = None,
+        geometry: Geometry | None = None
+    ) -> ConstructionAssembly:
         """
         Create `ConstructionAssembly` object.
 
@@ -500,9 +515,19 @@ class ConstructionAssembly:
         ----------
         ID: str
             Name to identify the construction assembly
-        layers: list of `ThermalComponent` objects
+        layers: list of `ThermalComponent` objects, optional, default None
             A construction assembly is thought to be composed of successive layers,
             arranged from the outer to the inner environment.
+        U: Quantity, default None
+            U-value of the construction assembly. Can be used if the layered
+            composition of the construction assembly is unknown.
+        R: Quantity, default None
+            R-value of the construction assembly. Can be used if the layered
+            composition of the construction assembly is unknown.
+        geometry: Geometry, default None
+            The geometrical properties of the construction assembly (area and
+            thickness). Use this if `layers` is None, and `U` or `R` are used
+            instead.
 
         Returns
         -------
@@ -510,8 +535,15 @@ class ConstructionAssembly:
         """
         construction_assembly = cls()
         construction_assembly.ID = ID
-        construction_assembly.layers = {layer.ID: layer for layer in layers}
-        construction_assembly._thermal_component = sum(layers)
+        if layers is not None:
+            construction_assembly.layers = {layer.ID: layer for layer in layers}
+            construction_assembly._thermal_component = sum(layers)
+        elif U is not None:
+            construction_assembly._thermal_component.geometry = geometry
+            construction_assembly._thermal_component.U = U
+        else:
+            construction_assembly._thermal_component.geometry = geometry
+            construction_assembly._thermal_component.R = R
         return construction_assembly
 
     def apply_insulation_correction(
@@ -519,7 +551,7 @@ class ConstructionAssembly:
         insulation_layer_ID: str,
         insulation_level: int = 0,
         mechanical_fastening: MechanicalFastening | None = None
-    ) -> None:
+    ) -> ConstructionAssembly:
         """
         Apply a correction to the thermal resistance and transmittance of the
         construction assembly taking air voids and/or mechanical fasteners in the
@@ -546,17 +578,19 @@ class ConstructionAssembly:
 
         Returns
         -------
-        None.
+        A new ConstructionAssembly object with the applied correction.
         """
-        insulation_layer = self.layers.get(insulation_layer_ID)
+        new_assembly = deepcopy(self)
+        insulation_layer = new_assembly.layers.get(insulation_layer_ID)
         if insulation_layer:
             delta_U = apply_insulation_correction(
-                insulation_layer, self._thermal_component,
+                insulation_layer, new_assembly._thermal_component,
                 insulation_level, mechanical_fastening
             )
             insulation_layer.U += delta_U
             # also update R of construction assembly
-            self._thermal_component.U += delta_U
+            new_assembly._thermal_component.U += delta_U
+        return new_assembly
 
     def apply_ventilated_layer_correction(
         self,
@@ -565,7 +599,7 @@ class ConstructionAssembly:
         heat_flow_direction: HeatFlowDirection,
         Tmn: Quantity,
         surface_emissivity: Quantity = Q_(0.9, 'frac'),
-    ) -> None:
+    ) -> ConstructionAssembly:
         """
         Apply a correction to the thermal resistance and transmittance of the
         construction assembly due to a slightly or well-ventilated air layer
@@ -601,13 +635,17 @@ class ConstructionAssembly:
 
         Returns
         -------
-        None.
+        A new ConstructionAssembly object with correction for a slightly
+        or well ventilated air layer (if needed, else the original
+        construction assembly is returned).
         """
         # get layers between interior surface and ventilated air layer
         i = list(self.layers.keys()).index(ventilated_layer_ID) + 1
         interior_layers = list(self.layers.values())[i:]
+
         # sum the interior layers (returns ThermalComponent object)
         interior_part = sum(interior_layers)
+
         # add external surface layer for still air to the internal part
         ext_surf_layer = SurfaceLayer.create(
             ID='',
@@ -618,18 +656,41 @@ class ConstructionAssembly:
             internal_surface=False,
             wind_speed=Q_(0, 'm / s')
         )
+
         # get total thermal resistance of building component with
         # well-ventilated air layer.
         R_ve = interior_part.R + ext_surf_layer.R
+
         # get total thermal resistance of building component with unventilated
         # air layer
         R_nve = self._thermal_component.R
+
         A_ve = area_of_openings.to('mm ** 2').m
+
+        # slightly ventilated air layer
         if 500 < A_ve < 1500:
             Rtot = (1500 - A_ve) / 1000 * R_nve + (A_ve - 500) / 1000 * R_ve
-            self._thermal_component.R = Rtot
-        elif A_ve >= 1500:
-            self._thermal_component.R = R_ve
+            new_layers = deepcopy(list(self.layers.values()))
+            new_assembly = ConstructionAssembly.create(
+                ID=self.ID,
+                layers=new_layers
+            )
+            air_layer = new_assembly.layers[ventilated_layer_ID]
+            air_layer.R = Rtot - self.R
+            return new_assembly
+
+        # well ventilated air layer
+        if A_ve >= 1500:
+            new_layers = interior_layers
+            new_layers.append(ext_surf_layer)
+            new_assembly = ConstructionAssembly.create(
+                ID=self.ID,
+                layers=new_layers
+            )
+            new_assembly._thermal_component.R = R_ve
+            return new_assembly
+
+        return self
 
     @property
     def R(self) -> Quantity:
@@ -642,13 +703,47 @@ class ConstructionAssembly:
         return 1 / self._thermal_component.R
 
     @property
-    def R_surf_ext(self) -> Quantity:
+    def R_surf_ext(self) -> Quantity | None:
         """Get the surface resistance at the exterior side."""
-        exterior_surface_layer = list(self.layers.values())[0]
-        return exterior_surface_layer.R
+        if self.layers is not None:
+            exterior_surface_layer = list(self.layers.values())[0]
+            return exterior_surface_layer.R
+        return None
+
+    @property
+    def thickness(self) -> Quantity | None:
+        """Get the thickness of the construction assembly."""
+        if self.layers is not None:
+            t = sum(layer.geometry.t for layer in self.layers.values())
+            return t
+        return None
+
+    @property
+    def area(self) -> Quantity:
+        return self._thermal_component.geometry.A
+
+    @area.setter
+    def area(self, v: Quantity) -> None:
+        self._thermal_component.geometry.A = v
 
     def __str__(self):
         _str = ''
         for comp_str in (str(layer) for layer in self.layers.values()):
             _str += comp_str
         return _str
+
+    def save(self) -> None:
+        with shelve.open(self.db_path) as shelf:
+            shelf[self.ID] = self
+
+    @classmethod
+    def load(cls, ID: str) -> 'ConstructionAssembly':
+        with shelve.open(cls.db_path) as shelf:
+            construction_assembly = cast('ConstructionAssembly', shelf[ID])
+            return construction_assembly
+
+    @classmethod
+    def overview(cls) -> list[str]:
+        """Returns a list with all the ID's of objects stored in the shelf."""
+        with shelve.open(cls.db_path) as shelf:
+            return list(shelf.keys())

@@ -100,28 +100,9 @@ class WetHeatExchanger(ABC):
         ...
 
     @property
+    @abstractmethod
     def Tco(self) -> Quantity:
-        if self._Tco is None:
-
-            def eq(unknown: np.ndarray) -> np.ndarray:
-                Tco = Q_(unknown[0], 'K')
-                xi = self._get_xi(Tco)
-                Uow = self._get_Uow(xi)
-                ntu = self._get_ntu(Uow)
-                m_star = self._get_m_star(xi)
-                eps = self._get_eps(ntu, m_star)
-                Tci = self.coolant_in.T
-                Q_max = self._get_Q_max()
-                cpc = self.coolant_in.cp
-                out = Tco - (Tci + eps * Q_max / (self.mc * cpc))
-                return np.array(out.to('K').m)
-
-            T_co_ini = self.coolant_in.T.to('K') + Q_(5, 'K')
-            roots = fsolve(eq, np.array([T_co_ini.m]))
-            T_co = Q_(roots[0], 'K')
-            self._Tco = T_co
-
-        return self._Tco
+        ...
 
     @property
     def eps(self) -> Quantity:
@@ -197,9 +178,56 @@ class WetCounterFlowHeatExchanger(WetHeatExchanger):
         eps = (1 - np.exp(-ntu * (1 - m_star))) / (1 - m_star * np.exp(-ntu * (1 - m_star)))
         return eps
 
+    @property
+    def Tco(self) -> Quantity:
+        if self._Tco is None:
+            def eq(unknown: np.ndarray) -> np.ndarray:
+                Tco = Q_(unknown[0], 'K')
+                xi = self._get_xi(Tco)
+                Uow = self._get_Uow(xi)
+                ntu = self._get_ntu(Uow)
+                m_star = self._get_m_star(xi)
+                eps = self._get_eps(ntu, m_star)
+                Tci = self.coolant_in.T
+                Q_max = self._get_Q_max()
+                cpc = self.coolant_in.cp
+                out = Tco - (Tci + eps * Q_max / (self.mc * cpc))
+                return np.array(out.to('K').m)
+
+            T_co_ini = self.coolant_in.T.to('K') + Q_(5, 'K')
+            roots = fsolve(eq, np.array([T_co_ini.m]))
+            T_co = Q_(roots[0], 'K')
+            self._Tco = T_co
+
+        return self._Tco
+
 
 class WetDXCoil(WetHeatExchanger):
 
     def _get_eps(self, ntu: Quantity, m_star: Quantity) -> Quantity:
         eps = 1 - np.exp(-ntu)
         return eps
+
+    @property
+    def Tco(self) -> Quantity:
+        if self._Tco is None:
+            def eq(unknown: np.ndarray) -> np.ndarray:
+                Tco = Q_(unknown[0], 'K')
+                xi = self._get_xi(Tco)
+                Uow = self._get_Uow(xi)
+                ntu = self._get_ntu(Uow)
+                m_star = self._get_m_star(xi)
+                eps = self._get_eps(ntu, m_star)
+                Q_max = self._get_Q_max()
+                hci = self.coolant_in.h
+                hco = hci + eps * Q_max / self.mc
+                Tco_new = self.coolant_in.fluid(h=hco, P=self.coolant_in.P).T
+                out = Tco_new - Tco
+                return np.array(out.to('K').m)
+
+            T_co_ini = self.coolant_in.T.to('K') + Q_(5, 'K')
+            roots = fsolve(eq, np.array([T_co_ini.m]))
+            T_co = Q_(roots[0], 'K')
+            self._Tco = T_co
+
+        return self._Tco

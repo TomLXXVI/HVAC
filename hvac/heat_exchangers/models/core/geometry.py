@@ -20,7 +20,7 @@ class CoilGeometry:
         kf: Quantity,
         fin_shape: str,
         Afa: Quantity = Q_(1.0, 'm ** 2'),
-        Nr: int = 1
+        Nr: int | float = 1
     ) -> None:
         """
         Parameters

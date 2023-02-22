@@ -148,7 +148,6 @@ class BinTableCreator:
         T_unit_desired = self._bin_limits[0].units
         if T_unit_desired != Q_(0, self._T_unit).units:
             T_column = self._yearly_tmy_data.loc[:, self._temperature_column_name]
-            T_unit_desired = self._bin_limits[0].units
             T_column_converted = [Q_(T, self._T_unit).to(T_unit_desired).m for T in T_column]
             self._yearly_tmy_data[self._temperature_column_name] = T_column_converted
 

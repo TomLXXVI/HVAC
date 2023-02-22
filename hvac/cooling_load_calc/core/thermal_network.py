@@ -48,8 +48,8 @@ class AbstractNode(ABC):
         ...
 
     @property
-    def A(self) -> Quantity:
-        return Q_(self._A, 'm ** 2')
+    def A(self) -> float:
+        return self._A
 
     @A.setter
     def A(self, v: Quantity) -> None:
@@ -114,9 +114,9 @@ class ExteriorSurfaceNode(AbstractNode):
 
 class InteriorSurfaceNode(AbstractNode):
     """
-    An interior surface node is the last node of the 1D thermal network of a
-    construction assembly. It is situated on the surface of the construction assembly and
-    as such has no thermal capacity.
+    An interior surface node is the last node of the 1-D thermal network of a
+    construction assembly. It is situated on the surface of the construction
+    assembly and as such it has no thermal capacity.
 
     The interior surface node can be connected to the zone air node through a
     convective resistance and/or to a thermal storage mass node within the zone
@@ -128,9 +128,9 @@ class InteriorSurfaceNode(AbstractNode):
 
     Parameter `R_list` is a list of 2 or 3 resistances in the given order:
     1. the conductive resistance between the interior surface node and the
-    preceding building mass node;
+    preceding building mass node,
     2. the convective resistance between the interior surface node and the zone
-    air node;
+    air node,
     3. the optionally radiative resistance between the interior surface node and
     the thermal storage node (if present).
     """
@@ -170,7 +170,7 @@ class ThermalStorageNode(AbstractNode):
 
     The parameter `R_list` must first list all the radiative resistances between
     the thermal storage mass node and the interior surface nodes. The last
-    element of `R_links` must be the convective resistance between the thermal
+    element of `R_list` must be the convective resistance between the thermal
     storage mass node and the zone air node.
     """
     def get_coefficients(self) -> Dict[str, float]:
@@ -190,9 +190,15 @@ class ThermalStorageNode(AbstractNode):
 
 
 class ThermalNetwork:
+    """Represents the linear thermal network model of a construction assembly."""
 
-    def __init__(self, nodes: List[AbstractNode]):
+    def __init__(
+        self,
+        nodes: List[AbstractNode],
+        int_surf_node_indices: List[int] | None = None
+    ) -> None:
         self.nodes = nodes
+        self.int_surf_node_indices = int_surf_node_indices
         self._T_ext: Callable[[float], float] | None = None
         self._T_int: Callable[[float], float] | None = None
         self._T_node_table: List[List[float]] | None = None
@@ -339,9 +345,11 @@ class ThermalNetworkBuilder:
 
 
 class ThermalNetworkSolver:
-    """Solve a linear thermal network model. The solve method can be applied
-    to the thermal network model of construction assembly or to the thermal network
-    of a space."""
+    """
+    Solve a linear thermal network model. The solve method can be applied
+    to the thermal network model of construction assembly or to the thermal
+    network of a space.
+    """
     _nodes: List[AbstractNode] = None
     _dt: float = 0.0
     _A: np.ndarray = None
@@ -456,8 +464,7 @@ class ThermalNetworkSolver:
 
         Returns
         -------
-        A list of lists. Each list contains the node temperatures at the time
-        index that corresponds with the index of the main list.
+        `ThermalNetwork`-object.
         """
         cls._init(thermal_network, dt_hr)
         cls._build_matrix_A()

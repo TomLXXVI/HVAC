@@ -47,18 +47,28 @@ def get_heat_transfer_params_overview(
         }
     d = {
         'Ao': [],
+        'Ao units': [],
         'he': [],
+        'he units': [],
         'hi': [],
+        'hi units': [],
         'Uo': [],
+        'Uo units': []
     }
     for cv in heat_exchanger.control_volumes:
         d['Ao'].append(cv.delta_Ao.to(units['A']).m)
+        d['Ao units'].append(units['A'])
         d['hi'].append(cv.htp.hi.to(units['hi']).m)
+        d['hi units'].append(units['hi'])
         if isinstance(cv, WetControlVolume):
-            d['he'].append(cv.htp.he.to(units['he_wet']).m)
+            d['he'].append(cv.htp.he_conv.to(units['he_wet']).m)
+            d['he units'].append(units['he_wet'])
             d['Uo'].append(cv.htp.Uo.to(units['Uo_wet']).m)
+            d['Uo units'].append(units['Uo_wet'])
         else:
-            d['he'].append(cv.htp.he.to(units['he_dry']).m)
+            d['he'].append(cv.htp.he_conv.to(units['he_dry']).m)
+            d['he units'].append(units['he_dry'])
             d['Uo'].append(cv.htp.Uo.to(units['Uo_dry']).m)
+            d['Uo units'].append(units['Uo_dry'])
     df = pd.DataFrame(d)
     return df

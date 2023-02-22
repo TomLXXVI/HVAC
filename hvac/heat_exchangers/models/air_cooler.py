@@ -54,7 +54,7 @@ class AirCooler:
             outlet=self.coolant_stream.outlet,
             m=self.coolant_stream.m,
             m_tube=self.coolant_stream.m_tube,
-            type=self.coolant_stream.type,
+            coolant_type=self.coolant_stream.coolant_type,
             e=self.coolant_stream.e
         )
         for i in range(self.n_segments):
@@ -77,7 +77,7 @@ class AirCooler:
                 outlet=cv.coolant_stream.inlet,
                 m=cv.coolant_stream.m,
                 m_tube=cv.coolant_stream.m_tube,
-                type=cv.coolant_stream.type,
+                coolant_type=cv.coolant_stream.coolant_type,
                 e=cv.coolant_stream.e
             )
         self.air_out = self.control_volumes[-1].air_stream.outlet
@@ -99,14 +99,14 @@ class AirCooler:
             vfa=self.air_stream.vfa
         )
         coolant_stream = CoolantStream(
-            inlet=self.coolant_stream.type(
+            inlet=self.coolant_stream.coolant_type(
                 P=self.coolant_stream.outlet.P,
                 h=self.coolant_stream.outlet.h - dhc
             ),
             outlet=self.coolant_stream.outlet,
             m=self.coolant_stream.m,
             m_tube=self.coolant_stream.m_tube,
-            type=self.coolant_stream.type,
+            coolant_type=self.coolant_stream.coolant_type,
             e=self.coolant_stream.e
         )
         for i in range(self.n_segments):
@@ -123,14 +123,14 @@ class AirCooler:
                 vfa=cv.air_stream.vfa
             )
             coolant_stream = CoolantStream(
-                inlet=cv.coolant_stream.type(
+                inlet=cv.coolant_stream.coolant_type(
                     P=cv.coolant_stream.inlet.P,
                     h=cv.coolant_stream.inlet.h - dhc
                 ),
                 outlet=cv.coolant_stream.inlet,
                 m=cv.coolant_stream.m,
                 m_tube=cv.coolant_stream.m_tube,
-                type=cv.coolant_stream.type,
+                coolant_type=cv.coolant_stream.coolant_type,
                 e=cv.coolant_stream.e
             )
         Ao = sum(cv.delta_Ao for cv in self.control_volumes)
@@ -244,14 +244,12 @@ class AirCooler:
     @property
     def Uod_avg(self) -> Quantity:
         """Average global heat transfer coefficient of dry part."""
-        Uod_list = []
-        n_dry = 0
+        UA_od_list = []
         for cv in self.control_volumes:
             if isinstance(cv, DryControlVolume):
-                Uod_list.append(cv.htp.Uo)
-                n_dry += 1
-        if Uod_list:
-            Uod_avg = sum(Uod_list) / n_dry
+                UA_od_list.append(cv.htp.Uo * cv.delta_Ao)
+        if UA_od_list:
+            Uod_avg = sum(UA_od_list) / self.Aod
         else:
             Uod_avg = Q_(0.0, 'W / (m**2 * K)')
         return Uod_avg
@@ -259,14 +257,12 @@ class AirCooler:
     @property
     def Uow_avg(self) -> Quantity:
         """Average global heat transfer coefficient of wet part."""
-        Uow_list = []
-        n_wet = 0
+        UA_ow_list = []
         for cv in self.control_volumes:
             if isinstance(cv, WetControlVolume):
-                Uow_list.append(cv.htp.Uo)
-                n_wet += 1
-        if Uow_list:
-            Uow_avg = sum(Uow_list) / n_wet
+                UA_ow_list.append(cv.htp.Uo * cv.delta_Ao)
+        if UA_ow_list:
+            Uow_avg = sum(UA_ow_list) / self.Aow
         else:
             Uow_avg = Q_(0.0, 'kg / (m**2 * s)')
         return Uow_avg
@@ -274,14 +270,12 @@ class AirCooler:
     @property
     def hed_avg(self) -> Quantity:
         """Average external heat transfer coefficient of dry part."""
-        hed_list = []
-        n_dry = 0
+        hA_ed_list = []
         for cv in self.control_volumes:
             if isinstance(cv, DryControlVolume):
-                hed_list.append(cv.htp.he)
-                n_dry += 1
-        if hed_list:
-            hed_avg = sum(hed_list) / n_dry
+                hA_ed_list.append(cv.htp.he_conv * cv.delta_Ao)
+        if hA_ed_list:
+            hed_avg = sum(hA_ed_list) / self.Aod
         else:
             hed_avg = Q_(0.0, 'W / (m**2 * K)')
         return hed_avg
@@ -289,14 +283,12 @@ class AirCooler:
     @property
     def hew_avg(self) -> Quantity:
         """Average external heat transfer coefficient of wet part."""
-        hew_list = []
-        n_wet = 0
+        hA_ew_list = []
         for cv in self.control_volumes:
             if isinstance(cv, WetControlVolume):
-                hew_list.append(cv.htp.he)
-                n_wet += 1
-        if hew_list:
-            hew_avg = sum(hew_list) / n_wet
+                hA_ew_list.append(cv.htp.he * cv.delta_Ao)
+        if hA_ew_list:
+            hew_avg = sum(hA_ew_list) / self.Aow
         else:
             hew_avg = Q_(0.0, 'kg / (m**2 * s)')
         return hew_avg
@@ -304,14 +296,13 @@ class AirCooler:
     @property
     def hid_avg(self) -> Quantity:
         """Average internal heat transfer coefficient of dry part."""
-        hid_list = []
-        n_dry = 0
+        hA_id_list = []
+        Ai_to_Ao = 1 / self.coil_geometry.Ao_to_Ai
         for cv in self.control_volumes:
             if isinstance(cv, DryControlVolume):
-                hid_list.append(cv.htp.hi)
-                n_dry += 1
-        if hid_list:
-            hid_avg = sum(hid_list) / n_dry
+                hA_id_list.append(cv.htp.hi * Ai_to_Ao * cv.delta_Ao)
+        if hA_id_list:
+            hid_avg = sum(hA_id_list) / self.coil_geometry.Ai
         else:
             hid_avg = Q_(0.0, 'W / (m**2 * K)')
         return hid_avg
@@ -319,14 +310,13 @@ class AirCooler:
     @property
     def hiw_avg(self) -> Quantity:
         """Average internal heat transfer coefficient of wet part."""
-        hiw_list = []
-        n_wet = 0
+        hA_iw_list = []
+        Ai_to_Ao = 1 / self.coil_geometry.Ao_to_Ai
         for cv in self.control_volumes:
             if isinstance(cv, WetControlVolume):
-                hiw_list.append(cv.htp.hi)
-                n_wet += 1
-        if hiw_list:
-            hiw_avg = sum(hiw_list) / n_wet
+                hA_iw_list.append(cv.htp.hi * Ai_to_Ao * cv.delta_Ao)
+        if hA_iw_list:
+            hiw_avg = sum(hA_iw_list) / self.coil_geometry.Ai
         else:
             hiw_avg = Q_(0.0, 'W / (m**2 * K)')
         return hiw_avg
@@ -364,14 +354,11 @@ class AirCooler:
     @property
     def Q_max(self) -> Quantity:
         """Theoretical maximum achievable heat transfer."""
-        if isinstance(self.control_volumes[-1], WetControlVolume):
-            hao_min = HumidAir(Tdb=self.coolant_in.T, RH=Q_(100, 'pct')).h
-        else:
-            hao_min = HumidAir(Tdb=self.coolant_in.T, W=self.air_stream.inlet.W).h
-        hco_max = self.coolant_stream.type(T=self.air_stream.inlet.Tdb, P=self.coolant_stream.outlet.P).h
-        Q_max1 = self.air_stream.m * (self.air_stream.inlet.h - hao_min)
-        Q_max2 = self.coolant_stream.m * (hco_max - self.coolant_in.h)
-        Q_max = min(Q_max1, Q_max2)
+        # only applies to refrigerants; Q_max is based on evaporation temperature (saturation temperature)
+        # Te = self.coolant_stream.coolant_type(P=self.coolant_stream.outlet.P, x=Q_(0, 'frac')).T
+        # ha_sat = HumidAir(Tdb=Te, RH=Q_(100, 'pct')).h
+        ha_sat = HumidAir(Tdb=self.coolant_in.T, RH=Q_(100, 'pct')).h
+        Q_max = self.air_stream.m * (self.air_stream.inlet.h - ha_sat)
         return Q_max
 
     @property

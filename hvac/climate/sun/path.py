@@ -24,6 +24,7 @@ class SunPath:
         self.location = loc
         self._interpolate: Optional[Callable[[float], float]] = None
         self._table: Optional[pd.DataFrame] = None
+        self._t_ax: List[DateTime] = []
         self._create_sun_path()
 
     def _create_sun_path(self):
@@ -32,6 +33,7 @@ class SunPath:
         azi_ax = []; elev_ax = []
         for t in t_ax:
             datetime = DateTime.combine(self.date, t)
+            self._t_ax.append(datetime)
             sp = self.location.sun_position(datetime)
             azi_ax.append(sp.azimuth.to('deg').m)
             elev_ax.append(sp.elevation.to('deg').m)
@@ -57,9 +59,11 @@ class SunPath:
         return self._table
 
     @property
-    def axes(self) -> Tuple[List[float], List[float]]:
-        """Get the azimuth and elevation coordinates of the sun path in degrees."""
-        return self._table['azimuth'].values, self._table['elevation'].values
+    def axes(self) -> Tuple[List[DateTime], List[Quantity], List[Quantity]]:
+        """Get the azimuth and elevation coordinates of the sun path."""
+        azi_ax = [Q_(v, 'deg') for v in self._table['azimuth'].values]
+        elev_ax = [Q_(v, 'deg') for v in self._table['elevation'].values]
+        return self._t_ax, azi_ax, elev_ax
 
 
 class HorizonPoint:
@@ -243,19 +247,19 @@ def plot_sun_paths(sun_paths: List[SunPath], horizon_profile: Optional[HorizonPr
         dpi=kwargs.get('dpi', 96),
     )
     for path in sun_paths:
-        x_axis, y_axis = path.axes
+        t_axis, azi_axis, elev_axis = path.axes
         graph.add_xy_data(
             label=path.name,
-            x1_values=x_axis,
-            y1_values=y_axis,
+            x1_values=[azi.to('deg').m for azi in azi_axis],
+            y1_values=[elev.to('deg').m for elev in elev_axis],
             style_props={'marker': 'o'}
         )
     if horizon_profile is not None:
-        x_axis, y_axis = horizon_profile.axes
+        azi_axis, elev_axis = horizon_profile.axes
         graph.add_xy_data(
             label=horizon_profile.name,
-            x1_values=x_axis,
-            y1_values=y_axis,
+            x1_values=azi_axis,
+            y1_values=elev_axis,
             style_props={'fill': {'color': 'black'}}
         )
     graph.add_legend(anchor='upper center', position=(0.5, -0.2), columns=7)

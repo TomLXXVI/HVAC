@@ -72,7 +72,7 @@ class AbstractControlVolume(ABC):
     def _calculate_hi(self, Ts: Quantity, Tc: Quantity) -> Quantity:
         if 0 < self.coolant_stream.outlet.x < 1:
             return BoilingHeatTransfer(
-                Coolant=self.coolant_stream.type, mc=self.coolant_stream.m,
+                Coolant=self.coolant_stream.coolant_type, mc=self.coolant_stream.m,
                 Tc=Tc, Ts=Ts,  # self.coolant_stream.outlet.T
                 Di=self.coil_geometry.Di, x=self.coolant_stream.outlet.x
             ).h
@@ -190,7 +190,7 @@ class WetControlVolume(AbstractControlVolume):
             # Note: here we assume that the coolant pressure remains constant
             Tci = self.coolant_type(P=self.Pc, h=Q_(hci, 'J / kg')).T.to('K').m
             hso = HumidAir(Tdb=Q_(Tso, 'K'), RH=Q_(100, 'pct')).h.to('J / kg').m
-            out = Tci + self.R * (hao - hso) - Tso
+            out = Tso - (Tci + self.R * (hao - hso))
             return out
 
         # heat balance: total heat = sensible heat + latent heat
@@ -377,7 +377,7 @@ class WetControlVolume(AbstractControlVolume):
             eta_surf=self.htp.eta_surf,
             R=self.htp.R,
             delta_Ao=self.delta_Ao,
-            coolant_type=self.coolant_stream.type
+            coolant_type=self.coolant_stream.coolant_type
         )
         sol = eqs.solve()
         return sol
@@ -387,10 +387,11 @@ class WetControlVolume(AbstractControlVolume):
         sol = self._solve_analysis_equations()
         try:
             self.air_stream.outlet = HumidAir(Tdb=sol['Tao'], W=sol['Wao'])
+            _ = self.air_stream.outlet.RH
         except ValueError:
             self.air_stream.outlet = HumidAir(Tdb=sol['Tao'], RH=Q_(100, 'pct'))
         self.surface.To = sol['Tso']
-        self.coolant_stream.inlet = self.coolant_stream.type(P=self.coolant_stream.outlet.P, h=sol['hci'])
+        self.coolant_stream.inlet = self.coolant_stream.coolant_type(P=self.coolant_stream.outlet.P, h=sol['hci'])
         self.ht.delta_Q = sol['delta_Q']
         self._set_heat_transfers()
 
@@ -417,13 +418,14 @@ class DryControlVolume(AbstractControlVolume):
             self.hco = kwargs.get('hco').to('J / kg').m
             self.Pc = kwargs.get('Pc').to('Pa')
             self.alpha_e = kwargs.get('alpha_e').to('W / (m ** 2 * K)').m
+            self.eta_surf = kwargs.get('eta_surf').to('frac').m
             self.R = kwargs.get('R').to('frac').m
             self.delta_Ao = kwargs.get('delta_Ao').to('m ** 2').m
 
         def eq1(self, delta_Q, Tao, Tso):
             Ta_avg = 0.5 * (self.Tai + Tao)
             Ts_avg = 0.5 * (self.Tsi + Tso)
-            lhs = self.alpha_e * self.delta_Ao * (Ta_avg - Ts_avg)
+            lhs = self.alpha_e * self.eta_surf * self.delta_Ao * (Ta_avg - Ts_avg)
             rhs = delta_Q
             return rhs - lhs
 
@@ -526,7 +528,7 @@ class DryControlVolume(AbstractControlVolume):
 
     def _solve_analysis_equations(self) -> Dict[str, Quantity]:
         eqs = DryControlVolume.SystemOfEquations(
-            coolant_type=self.coolant_stream.type,
+            coolant_type=self.coolant_stream.coolant_type,
             ma=self.air_stream.m,
             Tai=self.air_stream.inlet.Tdb,
             Tsi=self.surface.Ti,
@@ -534,6 +536,7 @@ class DryControlVolume(AbstractControlVolume):
             hco=self.coolant_stream.outlet.h,
             Pc=self.coolant_stream.outlet.P,
             alpha_e=self.htp.he,
+            eta_surf=self.htp.eta_surf,
             R=self.htp.R,
             delta_Ao=self.delta_Ao
         )
@@ -544,7 +547,7 @@ class DryControlVolume(AbstractControlVolume):
         super().analyze()
         sol = self._solve_analysis_equations()
         self.air_stream.outlet = HumidAir(Tdb=sol['Tao'], W=self.air_stream.inlet.W)
-        self.coolant_stream.inlet = self.coolant_stream.type(P=self.coolant_stream.outlet.P, h=sol['hci'])
+        self.coolant_stream.inlet = self.coolant_stream.coolant_type(P=self.coolant_stream.outlet.P, h=sol['hci'])
         self.surface.To = sol['Tso']
         self.ht.delta_Q = sol['delta_Q']
 

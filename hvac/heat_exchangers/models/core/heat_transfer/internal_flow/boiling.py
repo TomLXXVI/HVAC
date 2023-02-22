@@ -21,7 +21,7 @@ class BoilingHeatTransfer:
         Coolant: Fluid,
         mc: Quantity,
         Tc: Quantity,
-        Ts: Quantity,
+        Ts: Optional[Quantity],
         Di: Quantity,
         g: Optional[Quantity] = None,
         x: Optional[Quantity] = None,

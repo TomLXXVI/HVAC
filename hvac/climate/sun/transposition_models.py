@@ -55,7 +55,8 @@ class Surface:
 
 class TranspositionModel:
     """
-    Calculate irradiance on a titled surface when solar irradiance on the horizontal surface is known.
+    Calculate irradiance on a titled surface when solar irradiance on the
+    horizontal surface is known.
     """
     F_sky: float = float('nan')  # correction factor for diffuse sky radiation
     F_grd: float = float('nan')  # correction factor for diffuse radiation reflected from the ground
@@ -85,12 +86,14 @@ class TranspositionModel:
         I_dif : Quantity
             Diffuse irradiance from the sky on the horizontal surface.
         I_glo_hor: Quantity, optional
-            Global irradiance on the horizontal surface. If `None` it will be derived from `I_beam` and `I_dif`.
+            Global irradiance on the horizontal surface. If `None` it will be
+            derived from `I_beam` and `I_dif`.
         rho_grd : float, optional
             Reflectivity of the ground (ground albedo). Default value is 0.2.
         pv : bool, optional
-            To indicate that the surface is a PV panel. Default is `False`. If `True`, the global irradiance effectively
-            absorbed by the PV panel is determined by using the incidence angle factors.
+            To indicate that the surface is a PV panel. Default is `False`.
+            If `True`, the global irradiance effectively absorbed by the PV
+            panel is determined by using the incidence angle factors.
         """
         self.loc = loc
         self._date = datetime.date()
@@ -159,7 +162,8 @@ class TranspositionModel:
         """
         Global radiation on the tilted surface.
 
-        This is the sum of the direct, sky-reflected diffuse and ground-reflected diffuse components.
+        This is the sum of the direct, sky-reflected diffuse and
+        ground-reflected diffuse components.
         """
         I_glo_surf = self.I_dir_sur + self.I_dif_sky + self.I_dif_grd
         return I_glo_surf
@@ -169,28 +173,36 @@ class TranspositionModel:
         cls,
         location: Location,
         surface: Surface,
-        irradiance_hor_profile: Dict[str, List[Any]],
+        irradiance_profile_hor: Dict[str, List[Any]],
         rho_grd: float = 0.2,
         pv: bool = False
     ) -> Dict[str, List[Any]]:
         """
-        Returns daily profile of direct, diffuse and global irradiance on the tilted surface when the daily profile
-        of beam irradiance and diffuse irradiance on the horizontal surface is given.
+        Returns daily profile of:
+        - incidence angle of the sun on the tilted surface,
+        - the direct, diffuse and global irradiance on the tilted surface
+        when the daily profile of beam irradiance and diffuse
+        irradiance on the horizontal surface is given.
         """
-        I_glo_sur_profile = []; I_dir_sur_profile = []; I_dif_sur_profile = []
-        t_axis = irradiance_hor_profile['t']
-        I_beam_axis = irradiance_hor_profile['I_beam']
-        I_dif_axis = irradiance_hor_profile['I_dif']
-        for t, I_beam, I_dif in zip(t_axis, I_beam_axis, I_dif_axis):
-            transposition_model = cls(location, t, surface, I_beam, I_dif, rho_grd=rho_grd, pv=pv)
-            I_glo_sur_profile.append(transposition_model.I_glo_sur)
-            I_dir_sur_profile.append(transposition_model.I_dir_sur)
-            I_dif_sur_profile.append(transposition_model.I_dif_sky + transposition_model.I_dif_grd)
+        theta_i_profile = []
+        I_glo_sur_profile = []
+        I_dir_sur_profile = []
+        I_dif_sur_profile = []
+        t_ax = irradiance_profile_hor['t']
+        I_beam_ax = irradiance_profile_hor['beam']
+        I_dif_ax = irradiance_profile_hor['dif']
+        for t, I_beam, I_dif in zip(t_ax, I_beam_ax, I_dif_ax):
+            tpm = cls(location, t, surface, I_beam, I_dif, rho_grd=rho_grd, pv=pv)
+            theta_i_profile.append(tpm.theta_i)
+            I_glo_sur_profile.append(tpm.I_glo_sur)
+            I_dir_sur_profile.append(tpm.I_dir_sur)
+            I_dif_sur_profile.append(tpm.I_dif_sky + tpm.I_dif_grd)
         d = {
-            't': t_axis,
-            'I_glo_sur': [I_glo_sur for I_glo_sur in I_glo_sur_profile],
-            'I_dir_sur': [I_dir_sur for I_dir_sur in I_dir_sur_profile],
-            'I_dif_sur': [I_dif_sur for I_dif_sur in I_dif_sur_profile],
+            't': t_ax,
+            'theta_i': theta_i_profile,
+            'glo_sur': I_glo_sur_profile,
+            'dir_sur': I_dir_sur_profile,
+            'dif_sur': I_dif_sur_profile,
         }
         return d
 

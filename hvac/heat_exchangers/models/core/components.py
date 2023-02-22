@@ -20,7 +20,7 @@ class CoolantStream:
     outlet: Optional[FluidState] = None
     m: Optional[Quantity] = None
     m_tube: Optional[Quantity] = None
-    type: Optional[Fluid] = None
+    coolant_type: Optional[Fluid] = None
     e: Optional[Quantity] = None
 
 

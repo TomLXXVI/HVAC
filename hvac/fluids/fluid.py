@@ -14,6 +14,7 @@ fluid_logger = ModuleLogger.get_logger(__name__)
 
 @dataclass
 class FluidState:
+    fluid: 'Fluid'
     state_dict: Dict[str, Quantity]
 
     def __post_init__(self):
@@ -181,7 +182,7 @@ class Fluid:
         """Get the current state of the fluid wrapped in a new `FluidState`-
         instance."""
         d = {k: self._get_quantity(k) for k in self._coolprop_qties.keys()}
-        return FluidState(d)
+        return FluidState(self, d)
 
     def __call__(self, **input_qties: Quantity) -> FluidState:
         """Pass the input state variables that change the fluid's current state

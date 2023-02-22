@@ -48,10 +48,10 @@ class DryHeatExchanger(ABC):
         self._Tco: Quantity = None
 
     def _get_Ch(self) -> Quantity:
-        return self.hot_in.cp * self.mh
+        return (self.hot_in.cp * self.mh).to('W / K')
 
     def _get_Cc(self) -> Quantity:
-        return self.cold_in.cp * self.mc
+        return (self.cold_in.cp * self.mc).to('W / K')
 
     @staticmethod
     def _get_C_min(Ch: Quantity, Cc: Quantity) -> Quantity:

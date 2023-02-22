@@ -33,7 +33,14 @@ class Location:
     Represents a geographic location on Earth.
     """
 
-    def __init__(self, name: str, lat: Quantity, lon: Quantity, alt: Quantity = Q_(0.0, 'm'), tz: str = DEFAULT_TZ):
+    def __init__(
+        self,
+        name: str,
+        lat: Quantity,
+        lon: Quantity,
+        alt: Quantity = Q_(0.0, 'm'),
+        tz: str = DEFAULT_TZ
+    ):
         """
         Parameters
         ----------

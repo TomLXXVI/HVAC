@@ -1,4 +1,5 @@
-from typing import List, Callable, Optional, Dict
+from typing import Callable, Optional, Dict
+import numpy as np
 from scipy import interpolate
 import dill as pickle
 import pandas as pd
@@ -7,63 +8,7 @@ from hvac.logging import ModuleLogger
 logger = ModuleLogger.get_logger(__name__)
 
 
-def get_Tia_avg(
-    Ql_zones: List[float | int],
-    Tia_zones: List[float | int]
-) -> float:
-    """
-    Get the load-weighted average indoor air temperature.
-
-    Parameters
-    ----------
-    Ql_zones: List[float | int]
-        A list with the zone loads.
-    Tia_zones: List[float | int]
-        A list with the indoor air temperatures of the zones (wet-bulb
-        when cooling, dry-bulb when heating).
-
-    Returns
-    -------
-    The load-weighted average indoor air temperature (wet-bulb
-    when cooling, dry-bulb when heating).
-    """
-    Ql_tot = sum(Ql_zones)
-    Tia_avg = sum(
-        Tia * Ql_zone
-        for Tia, Ql_zone in zip(Tia_zones, Ql_zones)
-    ) / Ql_tot
-    return Tia_avg
-
-
-def get_CR_system(
-    Qiu_rated_list: List[float | int],
-    Qou_rated: float | int
-) -> float:
-    """
-    Get the combination ratio (model size ratio) of the VRF system, i.e. the ratio
-    of the sum of the rated capacities (or model sizes) of the indoor units in the
-    VRF system to the rated total indoor unit capacity (or model size) assigned
-    to the outdoor unit.
-
-    Parameters
-    ----------
-    Qiu_rated_list: List[float | int]
-        A list of the rated capacities of the indoor units in the VRF system
-        (based on indoor unit model size).
-    Qou_rated: float | int
-        The rated total indoor unit capacity assigned to the outdoor unit
-        (based on the outdoor unit model size).
-
-    Returns
-    -------
-    The combination ratio (or model size ratio) of the VRF-system.
-    """
-    Q_iu_tot = sum(Qiu_rated_list)
-    CR_system = Q_iu_tot / Qou_rated
-    return CR_system
-
-
-class VRFDataModel:
+class VRFModel:
     default_units = {
         'temperature': 'degC',
         'length': 'm',
@@ -72,23 +17,24 @@ class VRFDataModel:
 
     def __init__(self, units: Dict[str, str] | None = None):
         """
-        Create VRF data model. This object contains the functions that a
-        VRFSystem object will use to correct available capacity and input power
-        depending on temperature and part-load conditions, and also on
+        Create a VRF model. This object contains all the functions that a
+        `VRFSystem` instance will use to correct available capacity and input
+        power depending on temperature and part-load conditions, and also on
         installation conditions (combination ratio, equivalent piping length,
         piping height).
-        A separate model has to be created for cooling and heating using the
-        manufacturer's data.
+
+        A separate model has to be created for cooling and for heating using the
+        manufacturer's performance data.
 
         Parameters
         ----------
         units: Dict[str, str], optional
-            Most input data to the model will be dimensionless. Only temperature,
-            piping length, and piping height are input quantities to the model.
-            The default units for temperature, length, and height are degrees
-            Celsius, meter, and meter respectively. If this would not be the
-            case, parameter `units` must be given a dictionary with keys
-            'temperature', 'length', and 'height' together with their
+            Most input data to the model is dimensionless. Only temperature,
+            piping length, and piping height are quantities.
+            By default, it is assumed that units of temperature, length, and
+            height are degrees Celsius, meter, and meter respectively. If this
+            would not be the case, parameter `units` must be given a dictionary
+            with keys 'temperature', 'length', and 'height' together with their
             appropriate measuring unit.
         """
         self.units = self.default_units if units is None else units
@@ -98,6 +44,7 @@ class VRFDataModel:
         self.Leq_pipe_corr_fun: Optional[Callable] = None
         self.CR_corr_fun: Optional[Callable] = None
         self.HPRTF_fun: Optional[Callable] = None
+        self.defrost_corr_fun: Optional[Callable] = None
 
     def set_CAPFT_fun(self, CAP_data: pd.Series | pd.DataFrame) -> None:
         """
@@ -212,7 +159,11 @@ class VRFDataModel:
     def set_EIRFPLR_fun(self, EIRFPLR_data: pd.Series) -> None:
         """
         Set the function that returns the ratio of actual input power to rated input
-        power for a given part-load ratio (PLR).
+        power (this ratio is then defined as EIRFPLR) for a given part-load ratio
+        (PLR) when PLR >= PLR_min. The EIRFPLR factor accounts for compressor speed
+        changes above PLR_min (i.e. the minimum compressor part-load ratio).
+        Below PLR_min the compressor will cycle on and off (see method
+        `set_HPRTF_fun` for this case)
 
         Parameters
         ----------
@@ -237,19 +188,23 @@ class VRFDataModel:
         PLR can also be considered as a ratio of the actual total capacity of indoor
         units to the rated total capacity of indoor units.
         """
+        PLR_min = min(EIRFPLR_data.index[0], EIRFPLR_data.index[-1])
+        PLR_max = max(EIRFPLR_data.index[0], EIRFPLR_data.index[-1])
+
         EIRFPLR_fun = interpolate.interp1d(
             x=EIRFPLR_data.index,
             y=EIRFPLR_data.values,
             bounds_error=False,
             fill_value='extrapolate'
         )
-        PLR_min = min(EIRFPLR_data.index[0], EIRFPLR_data.index[-1])
-        PLR_max = max(EIRFPLR_data.index[0], EIRFPLR_data.index[-1])
 
         def f(PLR: float) -> float:
             if not (PLR_min <= PLR <= PLR_max):
                 logger.warning(f"PLR-value {PLR} outside interpolation domain")
-            return EIRFPLR_fun(PLR)
+            if PLR >= PLR_min:
+                return EIRFPLR_fun(PLR)
+            else:
+                return EIRFPLR_fun(PLR_min)
 
         self.EIRFPLR_fun = f
 
@@ -275,14 +230,15 @@ class VRFDataModel:
         ratio of capacity of the outdoor unit in function of total capacity of
         indoor units.
         """
+        CR_min = min(CR_corr_data.index[0], CR_corr_data.index[-1])
+        CR_max = max(CR_corr_data.index[0], CR_corr_data.index[-1])
+
         CR_corr_fun = interpolate.interp1d(
             x=CR_corr_data.index,
             y=CR_corr_data.values,
             bounds_error=False,
-            fill_value='extrapolate'
+            fill_value=(CR_min, CR_max)
         )
-        CR_min = min(CR_corr_data.index[0], CR_corr_data.index[-1])
-        CR_max = max(CR_corr_data.index[0], CR_corr_data.index[-1])
 
         def f(CR: float) -> float:
             if not (CR_min <= CR <= CR_max):
@@ -290,6 +246,29 @@ class VRFDataModel:
             return CR_corr_fun(CR)
 
         self.CR_corr_fun = f
+
+    def set_defrost_corr_fun(self, defrost_data: pd.Series):
+        """
+        Set the defrost correction function to correct for outdoor unit capacity
+        (only used in heating mode).
+
+        Parameters
+        ----------
+        defrost_data:
+            A Pandas Series object of which the index consists of outdoor air
+            temperatures and the values are corresponding correction factors.
+        """
+        defrost_corr_fun = interpolate.interp1d(
+            x=defrost_data.index,
+            y=defrost_data.values,
+            bounds_error=False,
+            fill_value=(defrost_data.values[-1], 1.0)
+        )
+
+        def f(defrost_cf: float) -> float:
+            return defrost_corr_fun(defrost_cf)
+
+        self.defrost_corr_fun = f
 
     def set_Leq_pipe_corr_fun(
         self,
@@ -377,7 +356,7 @@ class VRFDataModel:
                 def f(Leq: float | int, h: float | int) -> float:
                     if not (Leq_min <= Leq <= Leq_max):
                         logger.warning(f"Equivalent pipe length {Leq} outside interpolation domain")
-                    return Leq_corr_fun(Leq) + cf_height * h
+                    return Leq_corr_fun(Leq)[0] + cf_height * h
 
                 self.Leq_pipe_corr_fun = f
             else:
@@ -389,13 +368,14 @@ class VRFDataModel:
 
                 self.Leq_pipe_corr_fun = f
 
-    def set_HPRTF_fun(self, PLR_min: float = 0.2) -> None:
+    def set_HPRTF_fun(self, PLR_min: float = 0.5) -> None:
         """
-        Set the heat pump runtime fraction when PLR is smaller than PLR_min.
+        Set the function that calculates the heat pump runtime fraction
+        when PLR is smaller than PLR_min.
 
         Parameters
         ----------
-        PLR_min: float, default 0.2
+        PLR_min: float, default 0.5
             Minimum part-load ratio at which capacity modulation by controlling
             compressor speed is possible. When PLR < PLR_min, the compressor
             will cycle.
@@ -407,10 +387,12 @@ class VRFDataModel:
         heat pump runtime fraction.
         """
         def HPRTF_fun(PLR: float):
-            cycling_ratio = PLR / PLR_min
-            cycling_ratio_fraction = 0.85 + 0.15 * cycling_ratio
-            HPRTF = min(1.0, cycling_ratio / cycling_ratio_fraction)
-            return HPRTF
+            if PLR < PLR_min:
+                CR = PLR / PLR_min  # cycling ratio
+                CR_frac = 0.85 + 0.15 * CR  # cycling ratio fraction
+                return CR / CR_frac  # heat pump runtime fraction
+            else:
+                return 1.0  # neutralize HPRTF when PLR >= PLR_min
 
         self.HPRTF_fun = HPRTF_fun
 
@@ -420,8 +402,125 @@ class VRFDataModel:
             pickle.dump(self, fh)
 
     @staticmethod
-    def load(file_path: str) -> 'VRFDataModel':
+    def load(file_path: str) -> 'VRFModel':
         """Load the VRF-model from disk."""
         with open(file_path, 'rb') as fh:
             vrf_model = pickle.load(fh)
             return vrf_model
+
+
+class VRFModelCreator:
+    """Helper class for the user to create the `VRFModel`."""
+    class QTCurve:
+        low_limit = -20
+        high_limit = 15
+
+        @staticmethod
+        def _get_interpolant(points):
+            x, y = zip(*points)
+            interpolant = interpolate.interp1d(x, y)
+            return interpolant
+
+        def __init__(self, points: list[tuple[float, float]]):
+            self._interpolant = self._get_interpolant(points)
+
+        def __call__(self, Tao: float) -> float:
+            if self.low_limit <= Tao <= self.high_limit:
+                return self._interpolant(Tao)
+            else:
+                raise OverflowError(
+                    f'outside air temperature not within limits '
+                    f'[{self.low_limit}, {self.high_limit}]'
+                )
+
+    class WTCurve(QTCurve):
+        pass
+
+    def __init__(
+        self,
+        Tia_list: list[float | int],
+        Tao_limits: tuple[float | int, float | int] = (-20, 15),
+        units: Dict[str, str] | None = None
+    ):
+        """
+        Create `VRFModelCreator` instance.
+
+        Parameters
+        ----------
+        Tia_list:
+            List of the indoor air temperatures for which curves of input power
+            ratios as function of outdoor air temperature are given.
+        Tao_limits:
+            The lower and upper limit of the outdoor air temperature axis of
+            the curves that give capacity ratio and input power ratio as a
+            function of outdoor air temperature.
+        units:
+            Most input data to the model is dimensionless. Only temperature,
+            piping length, and piping height are quantities.
+            By default, it is assumed that units of temperature, length, and
+            height are degrees Celsius, meter, and meter respectively. If this
+            would not be the case, parameter `units` must be given a dictionary
+            with keys 'temperature', 'length', and 'height' together with their
+            appropriate measuring unit used in the manufacturer's datasheets.
+        """
+        self.QTCurve.low_limit = self.WTCurve.low_limit = Tao_limits[0]
+        self.QTCurve.high_limit = self.WTCurve.high_limit = Tao_limits[1]
+        self.QT_curve = None
+        self.WT_curves = {float(Tia): None for Tia in Tia_list}
+        self.vrf_model = VRFModel(units)
+        self.Toa_arr = np.arange(self.QTCurve.low_limit, self.QTCurve.high_limit + 1.0, 1.0)
+
+    def create_QT_curve(self, points: list[tuple[float, float]]):
+        self.QT_curve = self.QTCurve(points)
+
+    def create_WT_curve(self, Tia: float | int, points: list[tuple[float, float]]):
+        self.WT_curves[float(Tia)] = self.WTCurve(points)
+
+    def create_CAPFT_function(self):
+        Q_ratio_list = [self.QT_curve(Toa) for Toa in self.Toa_arr]
+        CAP_data = pd.Series(data=Q_ratio_list, index=self.Toa_arr)
+        self.vrf_model.set_CAPFT_fun(CAP_data)
+
+    def create_EIRFT_function(self):
+
+        def WT_curve(Tia: float | int, Toa: float | int):
+            return self.WT_curves[float(Tia)](Toa)
+
+        EIR_ratio_list = [
+            [WT_curve(Tia, Toa) / self.QT_curve(Toa) for Toa in self.Toa_arr]
+            for Tia in self.WT_curves.keys()
+        ]
+        EIR_data = pd.DataFrame(
+            data=EIR_ratio_list,
+            index=list(self.WT_curves.keys()),
+            columns=self.Toa_arr
+        )
+        self.vrf_model.set_EIRFT_fun(EIR_data)
+
+    def create_defrost_corr_function(self, points: list[tuple[float, float]]):
+        Tao_list, defrost_coeff_list = zip(*points)
+        defrost_corr_data = pd.Series(index=Tao_list, data=defrost_coeff_list)
+        self.vrf_model.set_defrost_corr_fun(defrost_corr_data)
+
+    def create_EIRFPLR_function(self, Qiu_rated: int, points: list[tuple[float, float]]):
+        Qiu_list, W_ratio_list = zip(*points)
+        PLR_values = [Qiu / Qiu_rated for Qiu in Qiu_list]
+        EIRFPLR_data = pd.Series(index=PLR_values, data=W_ratio_list)
+        self.vrf_model.set_EIRFPLR_fun(EIRFPLR_data)
+
+    def create_CR_corr_function(self, Qiu_rated: int, points: list[tuple[float, float]]):
+        Qiu_list, Q_ratio_list = zip(*points)
+        CR_values = [Qiu / Qiu_rated for Qiu in Qiu_list]
+        CR_corr_data = pd.Series(index=CR_values, data=Q_ratio_list)
+        self.vrf_model.set_CR_corr_fun(CR_corr_data)
+
+    def create_Leq_corr_function(self, points: list[tuple[float, float]]):
+        L_eq_list, cf_list = zip(*points)
+        Leq_pipe_corr_data = pd.Series(index=L_eq_list, data=cf_list)
+        self.vrf_model.set_Leq_pipe_corr_fun(Leq_pipe_corr_data)
+
+    def create_HPRTF_function(self, PLR_min: float = 0.5):
+        self.vrf_model.set_HPRTF_fun(PLR_min)
+
+    def save_model(self, fp: str):
+        self.vrf_model.save(fp)

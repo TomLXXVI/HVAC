@@ -14,7 +14,7 @@ class DryControlVolume(DCV):
     def _calculate_hi(self, Ts: Quantity, Tc: Quantity):
         if 0 < self.coolant_stream.outlet.x < 1:
             return CondensationHeatTransfer(
-                Coolant=self.coolant_stream.type,
+                Coolant=self.coolant_stream.coolant_type,
                 Tc=Tc,  # self.coolant_stream.outlet.T,
                 mc=self.coolant_stream.m,
                 Di=self.coil_geometry.Di,
@@ -76,7 +76,7 @@ class AirCondenser:
             outlet=self.coolant_stream.outlet,
             m=self.coolant_stream.m,
             m_tube=self.coolant_stream.m_tube,
-            type=self.coolant_stream.type,
+            coolant_type=self.coolant_stream.coolant_type,
             e=self.coolant_stream.e
         )
         for i in range(self.n_segments):
@@ -99,7 +99,7 @@ class AirCondenser:
                 outlet=cv.coolant_stream.inlet,
                 m=cv.coolant_stream.m,
                 m_tube=cv.coolant_stream.m_tube,
-                type=cv.coolant_stream.type,
+                coolant_type=cv.coolant_stream.coolant_type,
                 e=cv.coolant_stream.e
             )
         self.air_out = self.control_volumes[-1].air_stream.outlet
@@ -114,24 +114,24 @@ class AirCondenser:
         Tai = self.air_stream.inlet.Tdb.to('K')
         hao = self.air_stream.outlet.h
         Tao = self.air_stream.outlet.Tdb.to('K')
-        dha = (hai - hao) / self.n_segments
-        dTa = (Tai - Tao) / self.n_segments
+        dha = (hao - hai) / self.n_segments
+        dTa = (Tao - Tai) / self.n_segments
         dhc = self.air_stream.m * dha / self.coolant_stream.m
         air_stream = AirStream(
             inlet=self.air_stream.inlet,
-            outlet=HumidAir(Tdb=Tai - dTa, h=hai - dha),
+            outlet=HumidAir(Tdb=Tai + dTa, W=self.air_stream.inlet.W),
             m=self.air_stream.m,
             vfa=self.air_stream.vfa
         )
         coolant_stream = CoolantStream(
-            inlet=self.coolant_stream.type(
+            inlet=self.coolant_stream.coolant_type(
                 P=self.coolant_stream.outlet.P,
-                h=self.coolant_stream.outlet.h - dhc
+                h=self.coolant_stream.outlet.h + dhc
             ),
             outlet=self.coolant_stream.outlet,
             m=self.coolant_stream.m,
             m_tube=self.coolant_stream.m_tube,
-            type=self.coolant_stream.type,
+            coolant_type=self.coolant_stream.coolant_type,
             e=self.coolant_stream.e
         )
         for i in range(self.n_segments):
@@ -142,19 +142,19 @@ class AirCondenser:
                 self._segment_printer.print_segment(i, cv)
             air_stream = AirStream(
                 inlet=cv.air_stream.outlet,
-                outlet=HumidAir(Tdb=cv.air_stream.outlet.Tdb - dTa, h=cv.air_stream.outlet.h - dha),
+                outlet=HumidAir(Tdb=cv.air_stream.outlet.Tdb + dTa, W=cv.air_stream.outlet.W),
                 m=cv.air_stream.m,
                 vfa=cv.air_stream.vfa
             )
             coolant_stream = CoolantStream(
-                inlet=cv.coolant_stream.type(
+                inlet=cv.coolant_stream.coolant_type(
                     P=cv.coolant_stream.inlet.P,
-                    h=cv.coolant_stream.inlet.h - dhc
+                    h=cv.coolant_stream.inlet.h + dhc
                 ),
                 outlet=cv.coolant_stream.inlet,
                 m=cv.coolant_stream.m,
                 m_tube=cv.coolant_stream.m_tube,
-                type=cv.coolant_stream.type,
+                coolant_type=cv.coolant_stream.coolant_type,
                 e=cv.coolant_stream.e
             )
         Ao = sum(cv.delta_Ao for cv in self.control_volumes)
@@ -186,14 +186,12 @@ class AirCondenser:
 
     @property
     def Uo_avg(self) -> Quantity:
-        n = len(self.control_volumes)
-        Uo_avg = sum(cv.htp.Uo for cv in self.control_volumes) / n
+        Uo_avg = sum(cv.htp.Uo * cv.delta_Ao for cv in self.control_volumes) / self.Ao
         return Uo_avg
 
     @property
     def he_avg(self) -> Quantity:
-        n = len(self.control_volumes)
-        he_avg = sum(cv.htp.he for cv in self.control_volumes) / n
+        he_avg = sum(cv.htp.he * cv.delta_Ao for cv in self.control_volumes) / self.Ao
         return he_avg
 
     @property
@@ -204,16 +202,20 @@ class AirCondenser:
 
     @property
     def hi_avg(self) -> Quantity:
-        n = len(self.control_volumes)
-        hi_avg = sum(cv.htp.hi for cv in self.control_volumes) / n
+        Ai_to_Ao = 1 / self.coil_geometry.Ao_to_Ai
+        Ai = Ai_to_Ao * self.Ao
+        hi_avg = sum(cv.htp.hi * Ai_to_Ao * cv. delta_Ao for cv in self.control_volumes) / Ai
         return hi_avg
 
     @property
     def Q_max(self) -> Quantity:
-        Q_max1 = self.air_stream.m * CP_HUMID_AIR * (self.coolant_in.T - self.air_stream.inlet.Tdb)
-        hco_min = self.coolant_stream.type(T=self.air_stream.inlet.Tdb, P=self.coolant_stream.outlet.P).h
-        Q_max2 = self.coolant_stream.m * (self.coolant_in.h - hco_min)
-        Q_max = min(Q_max1, Q_max2)
+        # only applies to refrigerants; Q_max is based on condensation temperature (saturation temperature)
+        # Tc = self.coolant_stream.coolant_type(P=self.coolant_stream.outlet.P, x=Q_(0, 'frac')).T
+        delta_hc = self.coolant_in.h - self.coolant_stream.outlet.h
+        delta_Tc = self.coolant_in.T - self.coolant_stream.outlet.T
+        cpc = delta_hc / delta_Tc
+        Cmin = min(self.air_stream.m * CP_HUMID_AIR, self.coolant_stream.m * cpc)
+        Q_max = Cmin * (self.coolant_in.T - self.air_stream.inlet.Tdb)
         return Q_max
 
     @property

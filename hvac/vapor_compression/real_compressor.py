@@ -140,7 +140,8 @@ class FixedSpeedCompressor:
         coeff_file: Path,
         dT_sh: Quantity,
         dT_sc: Quantity,
-        refrigerant_type: Fluid
+        refrigerant_type: Fluid,
+        units: Dict[str, str] | None = None
     ) -> None:
         """
         Create `FixedSpeedCompressor`-model from polynomial coefficients that define
@@ -158,6 +159,8 @@ class FixedSpeedCompressor:
             Amount of subcooling for which the polynomial coefficients are valid.
         refrigerant_type: Fluid
             Refrigerant for which the polynomial coefficients are valid.
+        units: Dict[str, str], optional
+            The units used in the coefficients file.
         """
         self.dT_sh = dT_sh
         self.dT_sc = dT_sc
@@ -165,6 +168,8 @@ class FixedSpeedCompressor:
         self._Te: float = float('nan')
         self._Tc: float = float('nan')
         self._set_correlations(coeff_file)
+        if units is not None:
+            self.units.update(units)
 
     def _set_correlations(self, coeff_file: Path):
         # create a dictionary to hold the `Correlation`-object for each of the
@@ -344,11 +349,12 @@ class FixedSpeedCompressor:
 class VariableSpeedCompressor(FixedSpeedCompressor):
 
     def __init__(
-            self,
-            coeff_file: Path,
-            dT_sh: Quantity,
-            dT_sc: Quantity,
-            refrigerant_type: Fluid,
+        self,
+        coeff_file: Path,
+        dT_sh: Quantity,
+        dT_sc: Quantity,
+        refrigerant_type: Fluid,
+        units: Dict[str, str] | None = None
     ) -> None:
         """
         Create `VariableSpeedCompressor`-model from polynomial coefficients that define
@@ -367,7 +373,7 @@ class VariableSpeedCompressor(FixedSpeedCompressor):
         refrigerant_type: Fluid
             Refrigerant for which the polynomial coefficients are valid.
         """
-        super().__init__(coeff_file, dT_sh, dT_sc, refrigerant_type)
+        super().__init__(coeff_file, dT_sh, dT_sc, refrigerant_type, units)
         self._speed = float('nan')
 
     def _set_correlations(self, coeff_file: Path):

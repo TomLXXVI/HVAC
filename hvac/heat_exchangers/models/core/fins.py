@@ -26,8 +26,9 @@ class Fin(ABC):
         h: Quantity
             Air-side heat transfer coefficient.
         eta: Quantity, optional
-            Fin efficiency. Defaults to `None`, which means that fin efficiency needs to be calculated from the other
-            parameters. Meant to be used only with derived class `DummyFin`.
+            Fin efficiency. Defaults to `None`, which means that fin efficiency
+            needs to be calculated from the other parameters. Meant to be used
+            only with derived class `DummyFin`.
         """
         self.ri = ri
         self.t = t
@@ -153,8 +154,12 @@ class FinnedSurface:
         Parameters
         ----------
         geometry: CoilGeometry
+            Coil geometry object with the geometrical properties of the coil.
         h: Quantity
-        eta_fin: Quantity
+            Air-side heat transfer coefficient.
+        eta_fin: Quantity, optional
+            Fin efficiency. If `fin_shape` in `geometry` is None, you can create
+            a "dummy fin" with the given fin efficiency `eta_fin`.
         """
         self.geometry = geometry
         self.h = h

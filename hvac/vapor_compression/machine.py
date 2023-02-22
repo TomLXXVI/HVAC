@@ -246,3 +246,19 @@ class SingleStageVCMachine:
         """Get state of mixture under the conditions set at instantiation
         of the `VaporCompressionSystem`-object."""
         return self.compressor.mixture
+
+    @property
+    def isentropic_efficiency(self) -> Quantity:
+        """Get the isentropic efficiency of the compressor."""
+        return self.compressor.eta_is
+
+    @property
+    def super_heat(self) -> Quantity:
+        """Get the degree of superheat of the suction gas."""
+        return self.compressor.dT_sh
+
+    @property
+    def sub_cooling(self) -> Quantity:
+        """Get the degree of subcooling of the liquid at the inlet of
+        the expansion device."""
+        return self.compressor.dT_sc
