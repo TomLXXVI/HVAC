@@ -1,8 +1,15 @@
-from typing import List, Optional, Callable, Dict, Tuple
+from typing import Callable, TYPE_CHECKING
 from abc import ABC, abstractmethod
 import numpy as np
 from hvac import Quantity
-from .construction_assembly import ConstructionAssembly, ThermalComponent
+from .fenestration import Window
+from .schedule import OnOffSchedule
+
+if TYPE_CHECKING:
+    from .building_element import (
+        ExteriorBuildingElement,
+        InteriorBuildingElement
+    )
 
 
 Q_ = Quantity
@@ -13,37 +20,52 @@ class AbstractNode(ABC):
     def __init__(
         self,
         ID: str,
-        R_list: List[Quantity],
-        C: Optional[Quantity] = None,
-        A: Optional[Quantity] = None,
-        T_input: Optional[Callable[[float], float]] = None,
-        Q_input: Optional[Callable[[float], float]] = None
+        R_unit_lst: list[Quantity],
+        C: Quantity | None = None,
+        A: Quantity = Q_(1.0, 'm ** 2'),
+        T_input: Callable[[float], float] | None = None,
+        Q_input: Callable[[float, float | None], float] | None = None
     ):
         self.ID = ID
-        self.R = [R.to('m ** 2 * K / W').m for R in R_list]
-        self.C = C.to('J / (K * m ** 2)').m if C is not None else None
-        self._A = A.to('m ** 2').m if A is not None else None
+        self._A = A.to('m ** 2').m
+        self.R_unit = [R.to('m ** 2 * K / W').m for R in R_unit_lst]
+        self.R = [R / self._A for R in self.R_unit]
+        self.C_unit = self.C = None
+        if C is not None:
+            self.C_unit = C.to('J / (K * m ** 2)').m 
+            self.C = self.C_unit * self._A
         self.T_input = T_input
         self.Q_input = Q_input
         self.dt: float = 0.0
 
     @abstractmethod
-    def get_coefficients(self) -> Dict[str, float]:
+    def get_coefficients(
+        self,
+        cooling_active: bool = True
+    ) -> dict[str, float]:
         """Get coefficients of the LHS of the node equation."""
         ...
 
     @abstractmethod
-    def get_input(self, k: int, T_node_prev: Tuple[float, float]) -> float:
+    def get_input(
+        self,
+        k: int,
+        T_node_prev: tuple[float, float] | None = None,
+        cooling_active: bool = True
+    ) -> float:
         """
         Get RHS of the node equation.
 
         Parameters
         ----------
-        k :
+        k:
             Current time index.
-        T_node_prev :
-            Tuple of the two previous node temperatures. First element at time
-            index k-1 and second element at k-2.
+        T_node_prev:
+            Tuple of the two previous node temperatures. First element
+            (index 0 or -2) at time index k-2 and second element (index 1 or -1)
+            at k-1.
+        cooling_active:
+            Indicate if cooling is ON (True) or OFF (False)
         """
         ...
 
@@ -54,6 +76,8 @@ class AbstractNode(ABC):
     @A.setter
     def A(self, v: Quantity) -> None:
         self._A = v.to('m ** 2').m
+        self.R = [R / self._A for R in self.R_unit]
+        if self.C_unit is not None: self.C = self.C_unit * self._A
 
     def __str__(self):
         l1 = f"Node {self.ID}:\n"
@@ -74,15 +98,23 @@ class BuildingMassNode(AbstractNode):
     1. the conduction resistance between this node and the preceding node, and
     2. the conduction resistance between this node and the next node.
     """
-    def get_coefficients(self) -> Dict[str, float]:
+    def get_coefficients(
+        self,
+        cooling_active: bool = True
+    ) -> dict[str, float]:
         return {
-            'i, i-1': 1.0 / (self.R[0] * self.C),
-            'i, i': -1.0 / self.C * sum([1 / R for R in self.R]) - 1.5 / self.dt,
-            'i, i+1': 1.0 / (self.R[1] * self.C)
+            'i, i-1': -2 * self.dt / (self.R[0] * self.C),
+            'i, i': 3 + (2 * self.dt / self.C) * sum(1/R for R in self.R),
+            'i, i+1': -2 * self.dt / (self.R[1] * self.C)
         }
 
-    def get_input(self, k: int, T_node_prev: Tuple[float, float]) -> float:
-        return -2.0 / self.dt * T_node_prev[0] + 1.0 / (2.0 * self.dt) * T_node_prev[1]
+    def get_input(
+        self,
+        k: int,
+        T_node_prev: tuple[float, float] | None = None,
+        cooling_active: bool = True
+    ) -> float:
+        return 4 * T_node_prev[-1] - T_node_prev[-2]
 
 
 class ExteriorSurfaceNode(AbstractNode):
@@ -99,16 +131,24 @@ class ExteriorSurfaceNode(AbstractNode):
     2. The second resistance links the node to the next, internal node
     (which is an instance of class `BuildingMassNode`).
     """
-    def get_coefficients(self) -> Dict[str, float]:
+    def get_coefficients(
+        self,
+        cooling_active: bool = True
+    ) -> dict[str, float]:
         return {
-            'i, i': -1 / self.C * sum([1 / R for R in self.R]) - 1.5 / self.dt,
-            'i, i+1': 1 / (self.R[1] * self.C)
+            'i, i': 3 + (2 * self.dt / self.C) * sum(1/R for R in self.R),
+            'i, i+1': -2 * self.dt / (self.R[1] * self.C)
         }
 
-    def get_input(self, k: int, T_node_prev: Optional[Tuple[float, float]] = None) -> float:
+    def get_input(
+        self,
+        k: int,
+        T_node_prev: tuple[float, float] | None = None,
+        cooling_active: bool = True
+    ) -> float:
         return (
-            -2.0 / self.dt * T_node_prev[0] + 1.0 / (2.0 * self.dt) * T_node_prev[1]
-            - self.T_input(k * self.dt) / (self.C * self.R[0])
+            4 * T_node_prev[-1] - T_node_prev[-2]
+            + 2 * self.dt / (self.C * self.R[0]) * self.T_input(k * self.dt)
         )
 
 
@@ -134,59 +174,269 @@ class InteriorSurfaceNode(AbstractNode):
     3. the optionally radiative resistance between the interior surface node and
     the thermal storage node (if present).
     """
-    def get_coefficients(self) -> Dict[str, float]:
+    def _get_coefficients_Tz_known(self) -> dict[str, float]:
         if len(self.R) == 3:
             # True if there is also a ThermalStorageNode present
             return {
-                'i, i-1': 1.0 / self.R[0],
-                'i, i': -sum([1 / R for R in self.R]),
-                'i, -1': 1.0 / self.R[2]
+                'i, i-1': 1 / self.R[0],
+                'i, i': -sum(1/R for R in self.R),
+                'i, -1': 1 / self.R[-1]
             }
         else:
             return {
-                'i, i-1': 1.0 / self.R[0],
-                'i, i': -sum([1 / R for R in self.R]),
+                'i, i-1': 1 / self.R[0],
+                'i, i': -sum(1/R for R in self.R)
             }
 
-    def get_input(self, k: int, T_node_prev: Tuple[float, float]) -> float:
-        return -self.T_input(k * self.dt) / self.R[1]
+    def _get_input_Tz_known(
+        self,
+        k: int,
+    ) -> float:
+        return (-1 / self.R[1]) * self.T_input(k * self.dt)
+
+    def _get_coefficients_Tz_unknown(self) -> dict[str, float]:
+        if len(self.R) == 3:
+            # True if there is also a ThermalStorageNode present
+            return {
+                'i, i-1': 1 / self.R[0],
+                'i, i': -sum(1/R for R in self.R),
+                'i, -2': 1 / self.R[-2],
+                'i, -1': 1 / self.R[-1]
+            }
+        else:
+            return {
+                'i, i-1': 1 / self.R[0],
+                'i, i': -sum(1/R for R in self.R),
+                'i, -2': 1 / self.R[-1]
+            }
+
+    # noinspection PyMethodMayBeStatic
+    def _get_input_Tz_unknown(self) -> float:
+        return 0.0
+
+    def get_coefficients(
+        self,
+        cooling_active: bool = True
+    ) -> dict[str, float]:
+        if cooling_active is True:
+            return self._get_coefficients_Tz_known()
+        else:
+            return self._get_coefficients_Tz_unknown()
+
+    def get_input(
+        self,
+        k: int,
+        T_node_prev: tuple[float, float] | None = None,
+        cooling_active: bool = True
+    ) -> float:
+        if cooling_active is True:
+            return self._get_input_Tz_known(k)
+        else:
+            return self._get_input_Tz_unknown()
 
 
 class ThermalStorageNode(AbstractNode):
-    """
-    A thermal storage node represents the thermal storage mass of a zone. This
-    node is connected to the zone air node and to the interior surface node of
-    each construction assembly that surrounds the zone.
+    def __init__(
+        self,
+        ID: str,
+        R_unit_lst: list[Quantity],
+        C: Quantity | None = None,
+        A: Quantity = Q_(1.0, 'm ** 2'),
+        T_input: Callable[[float], float] | None = None,
+        Q_input: Callable[[float], float] | None = None,
+        windows: list[Window] | None = None,
+        int_building_elements: list['InteriorBuildingElement'] | None = None,
+        ext_doors: list['ExteriorBuildingElement'] | None = None,
+        int_doors: list['InteriorBuildingElement'] | None = None
+    ):
+        super().__init__(ID, R_unit_lst, C, A, T_input, Q_input)
+        if windows:
+            self.UA_wnd = sum(
+                wnd.F_rad * wnd.UA
+                for wnd in windows
+            )
+            self.T_ext = windows[0].T_ext
+        else:
+            self.UA_wnd = 0.0
+            self.T_ext = lambda t: 0.0
+        if int_building_elements:
+            self.int_building_elements = int_building_elements
+            self.UA_ibe = sum(
+                ibe.F_rad * ibe.UA
+                for ibe in int_building_elements
+            )
+        else:
+            self.int_building_elements = []
+            self.UA_ibe = 0.0
+        if ext_doors:
+            self.UA_edr = sum(
+                edr.F_rad * edr.UA
+                for edr in ext_doors
+            )
+            self.T_sol = ext_doors[0].T_sol
+        else:
+            self.UA_edr = 0.0
+        if int_doors:
+            self.int_doors = int_doors
+            self.UA_idr = sum(
+                idr.F_rad * idr.UA
+                for idr in int_doors
+            )
+        else:
+            self.int_doors = []
+            self.UA_idr = 0.0
 
-    Parameter `T_input` at instantiation of the node must be assigned a function
-    that returns the zone air temperature at each time moment *t* in units of
-    seconds.
-
-    Heat can also be added directly to the thermal storage node (from radiative
-    internal gains and transmitted solar heat gain through windows). The heat
-    input to the thermal storage node at any time instance *t* (in units of
-    seconds) comes from the function that was assigned to parameter `Q_input`
-    at the instantiation of the `ThermalStorageNode` object.
-
-    The parameter `R_list` must first list all the radiative resistances between
-    the thermal storage mass node and the interior surface nodes. The last
-    element of `R_list` must be the convective resistance between the thermal
-    storage mass node and the zone air node.
-    """
-    def get_coefficients(self) -> Dict[str, float]:
-        a = {f'i, {j}': 1.0 / (self.C * self.R[j - 1]) for j in range(1, len(self.R))}
-        a['i, i'] = -1.0 / self.C * sum([1 / R for R in self.R]) - 1.5 / self.dt
+    def _get_coefficients_Tz_known(self) -> dict[str, float]:
+        a = {f'-1, {i + 1}': -2 * self.dt / (self.C * self.R[i]) for i in range(len(self.R) - 1)}
+        a['-1, -1'] = 3 + (2 * self.dt / self.C) * sum(1/R for R in self.R)
         return a
 
-    def get_input(self, k: int, T_node_prev: Tuple[float, float]) -> float:
+    def _get_input_Tz_known(
+        self,
+        k: int,
+        T_node_prev: tuple[float, float] | None = None,
+    ) -> float:
         b = (
-            -2.0 / self.dt * T_node_prev[0] + 1.0 / (2.0 * self.dt) * T_node_prev[1]
-            - self.T_input(k * self.dt) / (self.C * self.R[-1])
+            4 * T_node_prev[-1] - T_node_prev[-2]
+            + (2 * self.dt / (self.C * self.R[-1])) * self.T_input(k * self.dt)
         )
         if self.Q_input is None:
             return b
         else:
-            return b - (self.Q_input(k * self.dt) / self._A) / self.C
+            return b + 2 * self.dt * self.Q_input(k * self.dt, None) / self.C
+
+    def _get_coefficients_Tz_unknown(self) -> dict[str, float]:
+        a = {f'-1, {i + 1}': -2 * self.dt / (self.C * self.R[i]) for i in range(len(self.R) - 1)}
+        a['-1, -1'] = 3 + (2 * self.dt / self.C) * sum(1/R for R in self.R)
+        a['-1, -2'] = (
+            -2 * self.dt / (self.C * self.R[-1]) +
+            2 * self.dt / self.C * (
+                self.UA_wnd +
+                self.UA_ibe +
+                self.UA_edr +
+                self.UA_idr
+            )
+        )
+        return a
+
+    def _get_input_Tz_unknown(
+        self,
+        k: int,
+        T_node_prev: tuple[float, float]
+    ) -> float:
+        b = (
+            4 * T_node_prev[-1] - T_node_prev[-2]
+            + 2 * self.dt / self.C * (
+                self.UA_wnd * self.T_ext(k * self.dt) +
+                sum(ibe.UA * ibe.T_adj(k * self.dt) for ibe in self.int_building_elements) +
+                self.UA_edr * self.T_sol(k * self.dt) +
+                sum(idr.UA * idr.T_adj(k * self.dt) for idr in self.int_doors)
+            )
+        )
+        return b
+
+    def get_coefficients(
+        self,
+        cooling_active: bool = True
+    ) -> dict[str, float]:
+        if cooling_active is True:
+            return self._get_coefficients_Tz_known()
+        else:
+            return self._get_coefficients_Tz_unknown()
+
+    def get_input(
+        self,
+        k: int,
+        T_node_prev: tuple[float, float] | None = None,
+        cooling_active: bool = True
+    ) -> float:
+        if cooling_active is True:
+            return self._get_input_Tz_known(k, T_node_prev)
+        else:
+            return self._get_input_Tz_unknown(k, T_node_prev)
+
+
+class ZoneAirNode(AbstractNode):
+
+    def __init__(
+        self,
+        ID: str,
+        R_unit_lst: list[Quantity],
+        A: Quantity = Q_(1, 'm ** 2'),
+        Q_input: Callable[[float], float] | None = None,
+        windows: list[Window] | None = None,
+        int_building_elements: list['InteriorBuildingElement'] | None = None,
+        ext_doors: list['ExteriorBuildingElement'] | None = None,
+        int_doors: list['InteriorBuildingElement'] | None = None
+    ):
+        super().__init__(ID, R_unit_lst, None, A, None, Q_input)
+        if windows:
+            self.UA_wnd = sum(
+                (1.0 - wnd.F_rad) * wnd.UA
+                for wnd in windows
+            )
+            self.T_ext = windows[0].T_ext
+        else:
+            self.UA_wnd = 0.0
+            self.T_ext = lambda t: 0.0
+        if int_building_elements:
+            self.int_building_elements = int_building_elements
+            self.UA_ibe = sum(
+                (1.0 - ibe.F_rad) * ibe.UA
+                for ibe in int_building_elements
+            )
+        else:
+            self.int_building_elements = []
+            self.UA_ibe = 0.0
+        if ext_doors:
+            self.UA_edr = sum(
+                (1.0 - edr.F_rad) * edr.UA
+                for edr in ext_doors
+            )
+            self.T_sol = ext_doors[0].T_sol
+        else:
+            self.UA_edr = 0.0
+        if int_doors:
+            self.int_doors = int_doors
+            self.UA_idr = sum(
+                (1.0 - idr.F_rad) * idr.UA
+                for idr in int_doors
+            )
+        else:
+            self.int_doors = []
+            self.UA_idr = 0.0
+
+    def get_coefficients(
+        self,
+        cooling_active: bool = True
+    ) -> dict[str, float]:
+        a = {f'-2, {i + 1}': 1 / self.R[i] for i in range(len(self.R) - 1)}
+        a['-2, -2'] = -(
+            sum(1 / R for R in self.R) +
+            self.UA_wnd +
+            self.UA_ibe +
+            self.UA_edr +
+            self.UA_idr
+        )
+        a['-2, -1'] = 1 / self.R[-1]
+        return a
+
+    def get_input(
+        self,
+        k: int,
+        T_node_prev: tuple[float, float] | None = None,
+        cooling_active: bool = True
+    ) -> float:
+        b = (
+            -self.UA_wnd * self.T_ext(k * self.dt)
+            - sum(ibe.UA * ibe.T_adj(k * self.dt) for ibe in self.int_building_elements)
+            - self.UA_edr * self.T_sol(k * self.dt)
+            - sum(idr.UA * idr.T_adj(k * self.dt) for idr in self.int_doors)
+        )
+        if self.Q_input is not None:
+            return b + self.Q_input(k * self.dt, None)
+        else:
+            return b
 
 
 class ThermalNetwork:
@@ -194,14 +444,14 @@ class ThermalNetwork:
 
     def __init__(
         self,
-        nodes: List[AbstractNode],
-        int_surf_node_indices: List[int] | None = None
+        nodes: list[AbstractNode],
+        int_surf_node_indices: list[int] | None = None
     ) -> None:
         self.nodes = nodes
         self.int_surf_node_indices = int_surf_node_indices
         self._T_ext: Callable[[float], float] | None = None
         self._T_int: Callable[[float], float] | None = None
-        self._T_node_table: List[List[float]] | None = None
+        self._T_node_table: list[list[float]] | None = None
 
     @property
     def T_ext(self) -> Callable[[float], float] | None:
@@ -224,25 +474,25 @@ class ThermalNetwork:
         self.nodes[-1].T_input = self._T_int
 
     @property
-    def T_node_table(self) -> List[List[Quantity]]:
+    def T_node_table(self) -> list[list[Quantity]]:
         tbl = [[Q_(T, 'degC') for T in row] for row in self._T_node_table]
         return tbl
 
     @T_node_table.setter
-    def T_node_table(self, tbl: List[List[float]]) -> None:
+    def T_node_table(self, tbl: list[list[float]]) -> None:
         self._T_node_table = tbl
 
     @property
     def R_ext(self) -> Quantity:
         """Get the thermal resistance at the exterior surface."""
         R_ext = self.nodes[0].R[0]
-        return Q_(R_ext, 'm ** 2 * K / W')
+        return Q_(R_ext, 'K / W')
 
     @property
     def R_int(self) -> Quantity:
         """Get the thermal resistance at the interior surface."""
         R_int = self.nodes[-1].R[-1]
-        return Q_(R_int, 'm ** 2 * K / W')
+        return Q_(R_int, 'K / W')
 
     def __str__(self):
         _str = ''
@@ -251,223 +501,198 @@ class ThermalNetwork:
         return _str
 
 
-class ThermalNetworkBuilder:
-    """Builds the linear thermal network of a construction assembly."""
-
-    @classmethod
-    def build(cls, construction_assembly: ConstructionAssembly) -> ThermalNetwork | None:
-        """
-        Get the linear thermal network of the construction assembly.
-
-        Returns
-        -------
-        `ThermalNetwork` object.
-
-        Notes
-        -----
-        The layers of the construction assembly must be arranged from
-        the exterior surface towards the interior surface.
-        """
-        thermal_network = cls._compose(list(construction_assembly.layers.values()))
-        reduced_thermal_network = cls._reduce(thermal_network)
-        nodes = cls._transform(reduced_thermal_network)
-        return ThermalNetwork(nodes)
-
-    @staticmethod
-    def _compose(layers: List[ThermalComponent]) -> List[Quantity]:
-        # create a list of resistors and capacitors
-        thermal_network = []
-        for layer in layers:
-            n = layer.slices
-            R_slice = layer.R / (2 * n)
-            C_slice = layer.C / n
-            slices = [R_slice, C_slice, R_slice] * n
-            thermal_network.extend(slices)
-        return thermal_network
-
-    @staticmethod
-    def _reduce(thermal_network: List[Quantity]) -> List[Quantity]:
-        # sum adjacent resistors between capacitors
-        R_dummy = Q_(0, 'm ** 2 * K / W')
-        reduced_thermal_network = []
-        R = thermal_network[0]
-        for i in range(1, len(thermal_network)):
-            if R_dummy.check(thermal_network[i].dimensionality):
-                # thermal_network[i] is a resistance
-                R += thermal_network[i]
-            else:
-                # thermal_network[i] is a capacitance: only keep C
-                # if it is > 0, unless for the last C (to set the interior
-                # surface node, see _transform)
-                if thermal_network[i].m > 0 or i == len(thermal_network) - 2:
-                    reduced_thermal_network.append(R)
-                    reduced_thermal_network.append(thermal_network[i])
-                    R = Q_(0.0, 'm ** 2 * K / W')
-        if R.m > 0:
-            reduced_thermal_network.append(R)
-        return reduced_thermal_network
-
-    @staticmethod
-    def _transform(reduced_thermal_network: List[Quantity]) -> List[AbstractNode] | None:
-        # create list of nodes, starting at the exterior surface towards the interior surface
-        if len(reduced_thermal_network) >= 5:
-            i = 1
-            node_index = 1
-            nodes = []
-            while True:
-                if i == 1:
-                    node = ExteriorSurfaceNode(
-                        ID=f'N{node_index}',
-                        R_list=[reduced_thermal_network[i - 1], reduced_thermal_network[i + 1]],
-                        C=reduced_thermal_network[i]
-                    )
-                    nodes.append(node)
-                    i += 2
-                    node_index += 1
-                elif i == len(reduced_thermal_network) - 2:
-                    node = InteriorSurfaceNode(
-                        ID=f'N{node_index}',
-                        R_list=[reduced_thermal_network[i - 1], reduced_thermal_network[i + 1]]
-                    )
-                    nodes.append(node)
-                    break
-                else:
-                    node = BuildingMassNode(
-                        ID=f'N{node_index}',
-                        R_list=[reduced_thermal_network[i - 1], reduced_thermal_network[i + 1]],
-                        C=reduced_thermal_network[i]
-                    )
-                    nodes.append(node)
-                    i += 2
-                    node_index += 1
-            return nodes
-        return None
-
-
 class ThermalNetworkSolver:
     """
     Solve a linear thermal network model. The solve method can be applied
-    to the thermal network model of construction assembly or to the thermal
-    network of a space.
+    to the thermal network model of construction assembly, but also to the
+    thermal network of a space.
     """
-    _nodes: List[AbstractNode] = None
-    _dt: float = 0.0
-    _A: np.ndarray = None
-    _B: np.ndarray = None
-    _Tn_table: List[List[float]] = None
-    _k_max: int = 0
+    dt: float = 0.0
+    k_max: int = 0
+    Tn_table: list[list[float]] = None
 
-    @classmethod
-    def _init(cls, thermal_network: ThermalNetwork, dt_hr: float = 1.0) -> None:
-        """
-        Initialize the solver with the input data.
+    class _CoolingOn:
+        nodes: list[AbstractNode] = None
+        n: int = 0
+        dt: float = 0.0
+        A: np.ndarray = None
+        B: np.ndarray = None
 
-        Parameters
-        ----------
-        thermal_network: ThermalNetwork
-            The thermal network model of a construction assembly or space.
-        dt_hr: float, default 1.0
-            The time step of the calculations expressed in hours.
+        @classmethod
+        def init(cls, nodes: list[AbstractNode]):
+            cls.nodes = nodes
+            cls.n = len(nodes)
+            cls.dt = ThermalNetworkSolver.dt
+            cls.B = np.zeros((cls.n, 1))
+            cls.A = cls._build_matrix_A()
 
-        Returns
-        -------
-        None
-        """
-        cls._nodes = thermal_network.nodes
-        cls._dt = dt_hr * 3600
-        n = len(cls._nodes)
-        cls._A = np.zeros((n, n))
-        cls._B = np.zeros((n, 1))
-        cls._Tn_table = [
-            [0.0] * n,  # initial node temperatures at k-2
-            [0.0] * n   # initial node temperatures at k-1
-        ]
-        cls._k_max = int(24.0 / dt_hr)
-
-    @classmethod
-    def _build_matrix_A(cls) -> None:
-        """
-        Build the coefficient matrix A from the thermal network model.
-
-        Returns
-        -------
-        None
-        """
-        int_surf_node_indexes = []
-        for i, node in enumerate(cls._nodes):
-            node.dt = cls._dt
-            a = node.get_coefficients()
-            if isinstance(node, ExteriorSurfaceNode):
-                cls._A[i, i] = a['i, i']
-                cls._A[i, i + 1] = a['i, i+1']
-            elif isinstance(node, BuildingMassNode):
-                cls._A[i, i - 1] = a['i, i-1']
-                cls._A[i, i] = a['i, i']
-                cls._A[i, i + 1] = a['i, i+1']
-            elif isinstance(node, InteriorSurfaceNode):
-                cls._A[i, i - 1] = a['i, i-1']
-                cls._A[i, i] = a['i, i']
-                try:
-                    cls._A[i, -1] = a['i, -1']
-                except KeyError:
-                    # the internal surface node is not connected to a 
-                    # thermal storage node
-                    pass
+        @classmethod
+        def _build_matrix_A(cls) -> np.ndarray:
+            """
+            Build the coefficient matrix A from the thermal network model.
+            """
+            A = np.zeros((cls.n, cls.n))
+            int_surf_node_indexes = []
+            for i, node in enumerate(cls.nodes):
+                node.dt = cls.dt
+                a = node.get_coefficients(cooling_active=True)
+                if isinstance(node, ExteriorSurfaceNode):
+                    A[i, i] = a['i, i']
+                    A[i, i + 1] = a['i, i+1']
+                elif isinstance(node, BuildingMassNode):
+                    A[i, i - 1] = a['i, i-1']
+                    A[i, i] = a['i, i']
+                    A[i, i + 1] = a['i, i+1']
+                elif isinstance(node, InteriorSurfaceNode):
+                    A[i, i - 1] = a['i, i-1']
+                    A[i, i] = a['i, i']
+                    try:
+                        A[i, -1] = a['i, -1']
+                    except KeyError:
+                        # the internal surface node is not connected to a
+                        # thermal storage node
+                        pass
+                    else:
+                        int_surf_node_indexes.append(i)
+                elif isinstance(node, ThermalStorageNode):
+                    A[i, i] = a['-1, -1']
+                    for p, j in enumerate(int_surf_node_indexes):
+                        A[i, j] = a[f'-1, {p + 1}']
                 else:
+                    pass
+            return A
+
+        @classmethod
+        def _update_matrix_B(
+            cls,
+            k: int,
+            Tn_prev: tuple[list[float], list[float]],
+            cooling_active: bool
+        ) -> None:
+            """
+            Update the input matrix B at time index k.
+            """
+            for i, node in enumerate(cls.nodes):
+                cls.B[i] = node.get_input(
+                    k,
+                    (Tn_prev[-1][i], Tn_prev[-2][i]),
+                    cooling_active
+                )
+
+        @classmethod
+        def solve(
+            cls,
+            k: int,
+            Tn_prev: tuple[list[float], list[float]],
+        ):
+            cls._update_matrix_B(k, Tn_prev, cooling_active=True)
+            Tn_array = np.linalg.solve(cls.A, cls.B)
+            Tn_list = np.transpose(Tn_array)[0].tolist()
+            return Tn_list
+
+    class _CoolingOff(_CoolingOn):
+
+        @classmethod
+        def _build_matrix_A(cls) -> np.ndarray:
+            A = np.zeros((cls.n, cls.n))
+            int_surf_node_indexes = []
+            for i, node in enumerate(cls.nodes):
+                node.dt = cls.dt
+                a = node.get_coefficients(cooling_active=False)
+                if isinstance(node, ExteriorSurfaceNode):
+                    A[i, i] = a['i, i']
+                    A[i, i + 1] = a['i, i+1']
+                elif isinstance(node, BuildingMassNode):
+                    A[i, i - 1] = a['i, i-1']
+                    A[i, i] = a['i, i']
+                    A[i, i + 1] = a['i, i+1']
+                elif isinstance(node, InteriorSurfaceNode):
+                    A[i, i - 1] = a['i, i-1']
+                    A[i, i] = a['i, i']
+                    A[i, -2] = a['i, -2']  # zone air node column
+                    A[i, -1] = a['i, -1']  # thermal storage node column
                     int_surf_node_indexes.append(i)
-            elif isinstance(node, ThermalStorageNode):
-                cls._A[i, i] = a['i, i']
-                for p, j in enumerate(int_surf_node_indexes):
-                    cls._A[i, j] = a[f'i, {p + 1}']
-            else:
-                pass
-    
-    @classmethod
-    def _update_matrix_B(cls, k: int) -> None:
-        """
-        Update the input matrix B at time index k.
-        """
-        for i, node in enumerate(cls._nodes):
-            cls._B[i] = node.get_input(k, (cls._Tn_table[-1][i], cls._Tn_table[-2][i]))
+                elif isinstance(node, ZoneAirNode):
+                    for p, j in enumerate(int_surf_node_indexes):
+                        A[-2, j] = a[f'-2, {p + 1}']
+                    A[-2, -2] = a['-2, -2']
+                    A[-2, -1] = a['-2, -1']
+                elif isinstance(node, ThermalStorageNode):
+                    for p, j in enumerate(int_surf_node_indexes):
+                        A[-1, j] = a[f'-1, {p + 1}']
+                    A[-1, -2] = a['-1, -2']
+                    A[-1, -1] = a['-1, -1']
+                else:
+                    pass
+            return A
+
+        @classmethod
+        def solve(
+            cls,
+            k: int,
+            Tn_prev: tuple[list[float], list[float]],
+            cooling_active: bool = False
+        ):
+            cls._update_matrix_B(k, Tn_prev, cooling_active=False)
+            Tn_array = np.linalg.solve(cls.A, cls.B)
+            Tn_list = np.transpose(Tn_array)[0].tolist()
+            return Tn_list
 
     @classmethod
-    def _solve(cls, n_cycles: int) -> None:
-        for i in range(n_cycles):
-            for k in range(cls._k_max):
-                cls._update_matrix_B(k)
-                Tn_array = np.linalg.solve(cls._A, cls._B)
-                Tn_list = np.transpose(Tn_array)[0].tolist()
-                cls._Tn_table.append(Tn_list)
-            if i < n_cycles - 1:
-                # if not the final diurnal cycle: only keep the node temperatures
-                # at the last two time steps as initial values for the next cycle.
-                cls._Tn_table = cls._Tn_table[-2:]
-        # remove the first two rows of the current temperature node table, which
-        # are still from the previous cycle and served as initial values for the
-        # last cycle.
-        cls._Tn_table = cls._Tn_table[2:]
+    def _init(cls, n: int, dt_hr: float):
+        cls.dt = dt_hr * 3600
+        cls.k_max = int(24.0 / dt_hr)
+        cls.Tn_table = [
+            [0.0] * n,
+            [0.0] * n
+        ]
 
     @classmethod
-    def solve(cls, thermal_network: ThermalNetwork, dt_hr: float = 1.0, n_cycles: int = 6) -> ThermalNetwork:
-        """
-        Solve the linear thermal network model of a construction assembly or space.
-
-        Parameters
-        ----------
-        thermal_network: ThermalNetwork
-            Thermal network model of construction assembly or space.
-        dt_hr: float, default 1.0
-            The time step of the calculations expressed in hours.
-        n_cycles: int, default 6
-            The number of diurnal cycles before the resulting node temperatures
-            are returned.
-
-        Returns
-        -------
-        `ThermalNetwork`-object.
-        """
-        cls._init(thermal_network, dt_hr)
-        cls._build_matrix_A()
-        cls._solve(n_cycles)
-        thermal_network.T_node_table = cls._Tn_table
-        return thermal_network
+    def solve(
+        cls,
+        thermal_networks: tuple[ThermalNetwork, ThermalNetwork | None],
+        cooling_schedule: OnOffSchedule | None = None,
+        dt_hr: float = 1.0,
+        n_cycles: int = 6
+    ) -> ThermalNetwork:
+        if cooling_schedule is None:
+            thermal_network = thermal_networks[0]
+            cls._init(len(thermal_network.nodes), dt_hr)
+            cls._CoolingOn.init(thermal_network.nodes)
+            for i in range(n_cycles):
+                for k in range(cls.k_max):
+                    Tn_list = cls._CoolingOn.solve(
+                        k,
+                        (cls.Tn_table[-1], cls.Tn_table[-2])
+                    )
+                    cls.Tn_table.append(Tn_list)
+                if i < n_cycles - 1:
+                    cls.Tn_table = cls.Tn_table[-2:]
+            cls.Tn_table = cls.Tn_table[2:]
+            thermal_network.T_node_table = cls.Tn_table
+            return thermal_network
+        else:
+            cls._init(len(thermal_networks[1].nodes), dt_hr)
+            cls._CoolingOn.init(thermal_networks[0].nodes)   # cooling ON: T_int = setpoint temperature
+            cls._CoolingOff.init(thermal_networks[1].nodes)  # cooling OFF: T_int is floating
+            for i in range(n_cycles):
+                for k in range(cls.k_max):
+                    if cooling_schedule(k * cls.dt):  # cooling ON
+                        Tn_list = cls._CoolingOn.solve(
+                            k,
+                            (cls.Tn_table[-1], cls.Tn_table[-2]),
+                        )
+                        tmn = thermal_networks[0].nodes[-1]
+                        Tz = tmn.T_input(k * cls.dt)
+                        Tn_list.insert(-1, Tz)  # insert zone air temperature in temperature node table
+                    else:  # cooling OFF
+                        Tn_list = cls._CoolingOff.solve(
+                            k,
+                            (cls.Tn_table[-1], cls.Tn_table[-2]),
+                        )
+                    cls.Tn_table.append(Tn_list)
+                if i < n_cycles - 1:
+                    cls.Tn_table = cls.Tn_table[-2:]
+            cls.Tn_table = cls.Tn_table[2:]
+            thermal_networks[1].T_node_table = cls.Tn_table
+            return thermal_networks[1]

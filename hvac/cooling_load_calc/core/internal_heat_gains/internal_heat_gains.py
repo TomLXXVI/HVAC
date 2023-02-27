@@ -110,7 +110,7 @@ class LightingHeatGain(InternalHeatGain):
             if light.schedule(t):
                 light.calculate_heat_gain()
                 Q_light = light.Q_light.to('W').m
-                Q_sen_rad += light.F_rad.m * Q_light
+                Q_sen_rad += light.F_rad * Q_light
                 Q_sen_conv += Q_light - Q_sen_rad
         return {'rad': Q_sen_rad, 'conv': Q_sen_conv}
 
@@ -141,6 +141,8 @@ class PeopleHeatGain(InternalHeatGain):
 
         Parameters
         ----------
+        ID:
+            Identifier for the internal heat gain
         Q_sen_person :
             Sensible heat release per person.
         Q_lat_person :
@@ -160,7 +162,7 @@ class PeopleHeatGain(InternalHeatGain):
 
     def Q_sen(self, t: float) -> dict[str, float]:
         Q_sen = self.schedule(t) * self.Q_sen_person.m
-        Q_sen_rad = self.F_rad.m * Q_sen
+        Q_sen_rad = self.F_rad * Q_sen
         Q_sen_conv = Q_sen - Q_sen_rad
         return {'rad': Q_sen_rad, 'conv': Q_sen_conv}
 

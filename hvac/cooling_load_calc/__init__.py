@@ -8,10 +8,11 @@ from .core import (
     SurfaceLayer,
     ConstructionAssembly,
     WindowThermalProperties,
-    ExteriorBuildingElement,
-    InteriorBuildingElement,
     ExteriorShadingDevice,
-    InteriorShadingDevice
+    InteriorShadingDevice,
+    TemperatureSchedule,
+    OnOffSchedule,
+    OccupancySchedule
 )
 
 from .building import (
@@ -21,6 +22,7 @@ from .building import (
     Building
 )
 
+# noinspection PyUnresolvedReferences
 from hvac.climate import (
     Location,
     ClimateData

@@ -12,8 +12,8 @@ from .construction_assembly import (
 
 from .thermal_network import (
     ThermalStorageNode,
+    ZoneAirNode,
     ThermalNetwork,
-    ThermalNetworkBuilder,
     ThermalNetworkSolver
 )
 

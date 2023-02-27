@@ -4,10 +4,16 @@ import pandas as pd
 from hvac import Quantity
 from hvac.climate import ClimateData
 from hvac.climate.sun.solar_time import time_from_decimal_hour
-from .construction_assembly import ConstructionAssembly
+from .construction_assembly import (
+    ThermalComponent,
+    ConstructionAssembly
+)
 from .thermal_network import (
+    AbstractNode,
+    ExteriorSurfaceNode,
+    BuildingMassNode,
+    InteriorSurfaceNode,
     ThermalNetwork,
-    ThermalNetworkBuilder,
     ThermalNetworkSolver
 )
 from .exterior_surface import ExteriorSurface
@@ -20,6 +26,108 @@ from .fenestration import (
 
 
 Q_ = Quantity
+
+
+class ThermalNetworkBuilder:
+    """Builds the linear thermal network of a construction assembly."""
+
+    @classmethod
+    def build(cls, construction_assembly: ConstructionAssembly) -> ThermalNetwork | None:
+        """
+        Get the linear thermal network of the construction assembly.
+
+        Returns
+        -------
+        `ThermalNetwork` object.
+
+        Notes
+        -----
+        The layers of the construction assembly must be arranged from
+        the exterior surface towards the interior surface.
+        """
+        thermal_network = cls._compose(list(construction_assembly.layers.values()))
+        reduced_thermal_network = cls._reduce(thermal_network)
+        nodes = cls._transform(reduced_thermal_network)
+        return ThermalNetwork(nodes)
+
+    @staticmethod
+    def _compose(layers: list[ThermalComponent]) -> list[Quantity]:
+        # create a list of resistors and capacitors
+        thermal_network = []
+        for layer in layers:
+            n = layer.slices
+            R_slice = layer.R / (2 * n)
+            C_slice = layer.C / n
+            slices = [R_slice, C_slice, R_slice] * n
+            thermal_network.extend(slices)
+        return thermal_network
+
+    @staticmethod
+    def _reduce(thermal_network: list[Quantity]) -> list[Quantity]:
+        # sum adjacent resistors between capacitors
+        R_dummy = Q_(0, 'm ** 2 * K / W')
+        reduced_thermal_network = []
+        R = thermal_network[0]
+        for i in range(1, len(thermal_network)):
+            if R_dummy.check(thermal_network[i].dimensionality):
+                # thermal_network[i] is a resistance
+                R += thermal_network[i]
+            else:
+                # thermal_network[i] is a capacitance: only keep C
+                # if it is > 0, unless for the last C (to set the interior
+                # surface node, see _transform)
+                if thermal_network[i].m > 0 or i == len(thermal_network) - 2:
+                    reduced_thermal_network.append(R)
+                    reduced_thermal_network.append(thermal_network[i])
+                    R = Q_(0.0, 'm ** 2 * K / W')
+        if R.m > 0:
+            reduced_thermal_network.append(R)
+        return reduced_thermal_network
+
+    @staticmethod
+    def _transform(reduced_thermal_network: list[Quantity]) -> list[AbstractNode] | None:
+        # create list of nodes, starting at the exterior surface towards the interior surface
+        if len(reduced_thermal_network) >= 5:
+            i = 1
+            node_index = 1
+            nodes = []
+            while True:
+                if i == 1:
+                    node = ExteriorSurfaceNode(
+                        ID=f'N{node_index}',
+                        R_unit_lst=[
+                            reduced_thermal_network[i - 1],
+                            reduced_thermal_network[i + 1]
+                        ],
+                        C=reduced_thermal_network[i]
+                    )
+                    nodes.append(node)
+                    i += 2
+                    node_index += 1
+                elif i == len(reduced_thermal_network) - 2:
+                    node = InteriorSurfaceNode(
+                        ID=f'N{node_index}',
+                        R_unit_lst=[
+                            reduced_thermal_network[i - 1],
+                            reduced_thermal_network[i + 1]
+                        ]
+                    )
+                    nodes.append(node)
+                    break
+                else:
+                    node = BuildingMassNode(
+                        ID=f'N{node_index}',
+                        R_unit_lst=[
+                            reduced_thermal_network[i - 1],
+                            reduced_thermal_network[i + 1]
+                        ],
+                        C=reduced_thermal_network[i]
+                    )
+                    nodes.append(node)
+                    i += 2
+                    node_index += 1
+            return nodes
+        return None
 
 
 class ExteriorBuildingElement:
@@ -41,7 +149,7 @@ class ExteriorBuildingElement:
         self.construction_assembly: ConstructionAssembly | None = None
         self._thermal_network: ThermalNetwork | None = None
         self.T_int_fun: Callable[[float], float] | None = None
-        self.F_rad: Quantity | None = None
+        self.F_rad: float | None = None
         self._heat_transfer: Dict[str, List[Quantity]] | None = None
         self.windows: List[Window] = []
         self.doors: List['ExteriorBuildingElement'] = []
@@ -57,7 +165,7 @@ class ExteriorBuildingElement:
         climate_data: ClimateData,
         construction_assembly: ConstructionAssembly,
         T_int_fun: Callable[[float], float],
-        F_rad: Quantity = Q_(0.46, 'frac'),
+        F_rad: float = 0.46,
         surface_absorptance: Quantity | None = None,
         surface_color: str = 'dark-colored'
     ) -> 'ExteriorBuildingElement':
@@ -88,7 +196,7 @@ class ExteriorBuildingElement:
         T_int_fun: Callable
             Function that returns the indoor air temperature for each hour of
             the day.
-        F_rad: Quantity, default 0.46
+        F_rad: float, default 0.46
             Fraction of conductive heat flow that is transferred by radiation
             to the internal mass of the space (ASHRAE Fundamentals 2017, Ch. 18,
             Table 14).
@@ -116,7 +224,7 @@ class ExteriorBuildingElement:
             surface_color=surface_color
         )
         ext_building_element.T_int_fun = T_int_fun
-        ext_building_element.F_rad = F_rad.to('frac')
+        ext_building_element.F_rad = F_rad
         return ext_building_element
 
     @property
@@ -128,6 +236,7 @@ class ExteriorBuildingElement:
             self._thermal_network = ThermalNetworkBuilder.build(self.construction_assembly)
             self._thermal_network.T_ext = self._exterior_surface.T_sol
             self._thermal_network.T_int = self.T_int_fun
+            for node in self._thermal_network.nodes: node.A = self.area_net
         return self._thermal_network
 
     @property
@@ -159,7 +268,7 @@ class ExteriorBuildingElement:
         width: Quantity,
         height: Quantity,
         therm_props: WindowThermalProperties,
-        F_rad: Quantity = Q_(0.46, 'frac'),
+        F_rad: float = 0.46,
         ext_shading_dev: ExteriorShadingDevice | None = None,
         int_shading_dev: InteriorShadingDevice | None = None
     ) -> None:
@@ -171,7 +280,6 @@ class ExteriorBuildingElement:
             height=height,
             climate_data=self._exterior_surface.climate_data,
             therm_props=therm_props,
-            T_int_fun=self.T_int_fun,
             F_rad=F_rad,
             ext_shading_dev=ext_shading_dev,
             int_shading_dev=int_shading_dev
@@ -184,7 +292,7 @@ class ExteriorBuildingElement:
         width: Quantity,
         height: Quantity,
         construction_assembly: ConstructionAssembly,
-        F_rad: Quantity = Q_(0.46, 'frac'),
+        F_rad: float = 0.46,
         surface_absorptance: Quantity | None = None,
         surface_color: str = 'dark-colored'
     ) -> None:
@@ -203,14 +311,22 @@ class ExteriorBuildingElement:
         )
         self.doors.append(door)
 
-    def get_conductive_heat_gain(self, t: float) -> Dict[str, float]:
+    @property
+    def UA(self) -> float:
+        U = self.construction_assembly.U.to('W / (m ** 2 * K)').m
+        A = self.area_net.to('m ** 2').m
+        return U * A
+
+    def T_sol(self, t: float) -> float:
+        return self._exterior_surface.T_sol(t)
+
+    def get_conductive_heat_gain(self, t: float, T_int: float) -> Dict[str, float]:
         # note: the **steady-state** conductive heat gain is calculated.
         U = self.construction_assembly.U.to('W / (m ** 2 * K)').m
         A = self.area_net.to('m ** 2').m
-        T_int = self.T_int_fun(t)
         T_sol = self._exterior_surface.T_sol(t)
         Q = U * A * (T_sol - T_int)
-        Q_rad = self.F_rad.m * Q
+        Q_rad = self.F_rad * Q
         Q_conv = Q - Q_rad
         return {'rad': Q_rad, 'conv': Q_conv}
 
@@ -243,12 +359,12 @@ class ExteriorBuildingElement:
         """
         if self._heat_transfer is None:
             tnw_solved = ThermalNetworkSolver.solve(
-                self.thermal_network,
+                (self.thermal_network, None),
+                None,
                 dt_hr,
                 n_cycles
             )
             dt = dt_hr * 3600
-            A = self.area_net.to('m ** 2')
             self._heat_transfer = {
                 'Q_ext': [],
                 'Q_int': [],
@@ -258,18 +374,17 @@ class ExteriorBuildingElement:
             for k, T_node_list in enumerate(tnw_solved.T_node_table):
                 t_ax.append(time_from_decimal_hour(k * dt_hr))
                 T_sol = Q_(self._exterior_surface.T_sol(k * dt), 'degC').to('K')
-                T_node_ext = T_node_list[0].to('K')
+                T_esn = T_node_list[0].to('K')
                 R_ext = tnw_solved.R_ext
-                q_ext = (T_sol - T_node_ext) / R_ext
-                Q_ext = A * q_ext
+                Q_ext = (T_sol - T_esn) / R_ext
                 T_int = Q_(self.T_int_fun(k * dt), 'degC').to('K')
                 T_node_int = T_node_list[-1].to('K')
                 R_int = tnw_solved.R_int
-                q_int = (T_node_int - T_int) / R_int
-                Q_int = A * q_int
-                R_tot = self.construction_assembly.R
+                Q_int = (T_node_int - T_int) / R_int
+                R_tot = self.construction_assembly.R.to('m ** 2 * K / W')
+                A = self.construction_assembly.area.to('m ** 2')
                 q_steady = (T_sol - T_int) / R_tot
-                Q_steady = A * q_steady
+                Q_steady = q_steady * A
                 self._heat_transfer['Q_ext'].append(Q_ext.to(unit).m)
                 self._heat_transfer['Q_int'].append(Q_int.to(unit).m)
                 self._heat_transfer['Q_steady'].append(Q_steady.to(unit).m)
@@ -284,9 +399,8 @@ class InteriorBuildingElement:
         self.width: Quantity | None = None
         self.height: Quantity | None = None
         self.construction_assembly: Quantity | None = None
-        self.T_int_fun: Callable[[float], float] | None = None
         self.T_adj_fun: Callable[[float], float] | None = None
-        self.F_rad: Quantity = Q_(0.46, 'frac')
+        self.F_rad: float = 0.46
         self.doors: List['InteriorBuildingElement'] = []
 
     @classmethod
@@ -296,18 +410,16 @@ class InteriorBuildingElement:
         width: Quantity,
         height: Quantity,
         construction_assembly: Quantity,
-        T_int_fun: Callable[[float], float],
         T_adj_fun: Callable[[float], float],
-        F_rad: Quantity = Q_(0.46, 'frac')
+        F_rad: float = 0.46
     ) -> 'InteriorBuildingElement':
         int_build_elem = cls()
         int_build_elem.ID = ID
         int_build_elem.width = width
         int_build_elem.height = height
         int_build_elem.construction_assembly = construction_assembly
-        int_build_elem.T_int_fun = T_int_fun
         int_build_elem.T_adj_fun = T_adj_fun
-        int_build_elem.F_rad = F_rad.to('frac')
+        int_build_elem.F_rad = F_rad
         return int_build_elem
 
     @property
@@ -322,13 +434,21 @@ class InteriorBuildingElement:
     def area_gross(self) -> Quantity:
         return self.width * self.height
 
-    def get_conductive_heat_gain(self, t: float) -> Dict[str, float]:
+    @property
+    def UA(self) -> float:
         U = self.construction_assembly.U.to('W / (m ** 2 * K)').m
         A = self.area_net.to('m ** 2').m
-        T_int = self.T_int_fun(t)
+        return U * A
+
+    def T_adj(self, t: float) -> float:
+        return self.T_adj_fun(t)
+
+    def get_conductive_heat_gain(self, t: float, T_int: float) -> Dict[str, float]:
+        U = self.construction_assembly.U.to('W / (m ** 2 * K)').m
+        A = self.area_net.to('m ** 2').m
         T_adj = self.T_adj_fun(t)
         Q = U * A * (T_adj - T_int)
-        Q_rad = self.F_rad.m * Q
+        Q_rad = self.F_rad * Q
         Q_conv = Q - Q_rad
         return {'rad': Q_rad, 'conv': Q_conv}
 
@@ -338,7 +458,7 @@ class InteriorBuildingElement:
         width: Quantity,
         height: Quantity,
         construction_assembly: ConstructionAssembly,
-        F_rad: Quantity = Q_(0.46, 'frac')
+        F_rad: float = 0.46
     ) -> None:
         door = InteriorBuildingElement.create(
             ID=ID,
@@ -346,7 +466,6 @@ class InteriorBuildingElement:
             height=height,
             construction_assembly=construction_assembly,
             F_rad=F_rad,
-            T_int_fun=self.T_int_fun,
             T_adj_fun=self.T_adj_fun
         )
         self.doors.append(door)

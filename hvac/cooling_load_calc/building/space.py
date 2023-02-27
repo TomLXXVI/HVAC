@@ -1,25 +1,24 @@
-from typing import Callable, Optional, Union, TYPE_CHECKING
+from typing import Callable
 from dataclasses import dataclass
+from datetime import time
 import pandas as pd
 from hvac import Quantity
 from hvac.fluids import HumidAir
 from hvac.climate import ClimateData
 from hvac.climate.sun.solar_time import time_from_decimal_hour
 from ..core import (
-    ConstructionAssembly,
     ExteriorBuildingElement,
     InteriorBuildingElement,
     InternalHeatGain,
-    ThermalStorageNode,
+    OnOffSchedule,
+    TemperatureSchedule,
+    ConstructionAssembly,
     ThermalNetwork,
-    ThermalNetworkSolver,
-    TemperatureSchedule
+    ThermalStorageNode,
+    ZoneAirNode,
+    ThermalNetworkSolver
 )
-
-
-if TYPE_CHECKING:
-    from .ventilation_zone import VentilationZone
-
+from . import VentilationZone
 
 Q_ = Quantity
 
@@ -34,7 +33,7 @@ class InternalThermalMass:
 class Ventilation:
 
     def __init__(self):
-        self.space: Optional['Space'] = None
+        self.space: Space | None = None
         self.vz: VentilationZone | None = None
 
         self.n_min: float = 0.0
@@ -47,7 +46,6 @@ class Ventilation:
 
         self.T_sup: TemperatureSchedule | None = None
         self.T_trf: TemperatureSchedule | None = None
-        self.T_int: TemperatureSchedule | None = None
         self.Tdb_ext: TemperatureSchedule | None = None
         self.Twb_ext: TemperatureSchedule | None = None
 
@@ -79,8 +77,7 @@ class Ventilation:
         obj.V_comb = V_comb.to('m ** 3 / hr').m
 
         obj.T_sup = T_sup or space.climate_data.Tdb_ext
-        obj.T_trf = T_trf or space.T_int_fun
-        obj.T_int = space.T_int_fun
+        obj.T_trf = T_trf
         obj.Tdb_ext = space.climate_data.Tdb_ext
         obj.Twb_ext = space.climate_data.Twb_ext
 
@@ -151,17 +148,20 @@ class Ventilation:
         V_outside = max(self.V_env + self.V_open, self.V_min - self.V_tech)
         return Q_(V_outside, 'm ** 3 / hr')
 
-    def Q_ven_sen(self, t: float) -> float:
+    def Q_ven_sen(self, t: float, T_int: float) -> float:
         """
         Sensible infiltration/ventilation load of the space.
         (EN 12831-1 eq. 17)
         """
         VT_inf = (
             max(self.V_env + self.V_open, self.V_min - self.V_tech)
-            * (self.Tdb_ext(t) - self.T_int(t))
+            * (self.Tdb_ext(t) - T_int)
         )
-        VT_sup = self.V_sup * (self.T_sup(t) - self.T_int(t))
-        VT_trf = self.V_trf * (self.T_trf(t) - self.T_int(t))
+        VT_sup = self.V_sup * (self.T_sup(t) - T_int)
+        if self.T_trf:
+            VT_trf = self.V_trf * (self.T_trf(t) - T_int)
+        else:
+            VT_trf = 0.0
         Q_ven = 0.34 * (VT_inf + VT_sup + VT_trf)  # see EN 12831-1 B.2.8.
         return Q_ven
 
@@ -199,6 +199,7 @@ class Space:
         self.ventilation: Ventilation | None = None
         self.climate_data: ClimateData | None = None
         self.T_int_fun: Callable[[float], float] | None = None
+        self.cooling_schedule: OnOffSchedule | None = None
         self.RH_int: Quantity | None = None
         self.ext_building_elements: dict[str, ExteriorBuildingElement] = {}
         self.int_building_elements: dict[str, InteriorBuildingElement] = {}
@@ -206,6 +207,7 @@ class Space:
         self.int_thermal_mass: InternalThermalMass | None = None
         self.dt_hr: float = 1.0
         self.n_cycles: int = 6
+        self._hbm: HeatBalanceMethod | None = None
 
     @classmethod
     def create(
@@ -217,7 +219,8 @@ class Space:
         climate_data: ClimateData,
         T_int_fun: Callable[[float], float],
         RH_int: Quantity = Q_(50, 'pct'),
-        ventilation_zone: Union['VentilationZone', None] = None
+        ventilation_zone: VentilationZone | None = None,
+        cooling_schedule: OnOffSchedule | None = None
     ) -> 'Space':
         space = cls()
         space.ID = ID
@@ -234,6 +237,7 @@ class Space:
             R=Q_(1 / 25 + 0.1, 'm ** 2 * K / W'),
             C=Q_(200, 'kJ / (m ** 2 * K)')
         )
+        space.cooling_schedule = cooling_schedule
         return space
 
     def add_ext_building_element(
@@ -244,7 +248,7 @@ class Space:
         width: Quantity,
         height: Quantity,
         construction_assembly: ConstructionAssembly,
-        F_rad: Quantity = Q_(0.46, 'frac'),
+        F_rad: float = 0.46,
         surface_absorptance: Quantity | None = None,
         surface_color: str = 'dark-colored'
     ) -> ExteriorBuildingElement:
@@ -271,14 +275,13 @@ class Space:
         height: Quantity,
         construction_assembly: Quantity,
         T_adj_fun: Callable[[float], float],
-        F_rad: Quantity = Q_(0.46, 'frac')
+        F_rad: float = 0.46
     ) -> InteriorBuildingElement:
         ibe = InteriorBuildingElement.create(
             ID=ID,
             width=width,
             height=height,
             construction_assembly=construction_assembly,
-            T_int_fun=self.T_int_fun,
             T_adj_fun=T_adj_fun,
             F_rad=F_rad
         )
@@ -326,8 +329,8 @@ class Space:
         V_trf: Quantity = Q_(0.0, 'm ** 3 / hr'),
         V_exh: Quantity = Q_(0.0, 'm ** 3 / hr'),
         V_comb: Quantity = Q_(0.0, 'm ** 3 / hr'),
-        T_sup: Optional[TemperatureSchedule] = None,
-        T_trf: Optional[TemperatureSchedule] = None
+        T_sup: TemperatureSchedule | None = None,
+        T_trf: TemperatureSchedule | None = None
     ) -> None:
         self.ventilation = Ventilation.create(
             space=self,
@@ -363,8 +366,9 @@ class Space:
         return self.floor_area * self.height
 
     def get_heat_gains(self, unit: str = 'W') -> pd.DataFrame:
-        hbm = HeatBalanceMethod(self, self.dt_hr, self.n_cycles)
-        df = hbm.get_heat_gains(unit)
+        if self._hbm is None:
+            self._hbm = HeatBalanceMethod(self, self.dt_hr, self.n_cycles)
+        df = self._hbm.get_heat_gains(unit)
         return df
 
     def get_thermal_storage_heat_flows(
@@ -372,61 +376,88 @@ class Space:
         T_unit: str = 'degC',
         Q_unit: str = 'W'
     ) -> pd.DataFrame:
-        hbm = HeatBalanceMethod(self, self.dt_hr, self.n_cycles)
-        df = hbm.get_thermal_storage_heat_flows(T_unit, Q_unit)
+        if self._hbm is None:
+            self._hbm = HeatBalanceMethod(self, self.dt_hr, self.n_cycles)
+        df = self._hbm.get_thermal_storage_heat_flows(T_unit, Q_unit)
+        return df
+
+    def get_space_air_temperatures(
+        self,
+        unit: str = 'degC'
+    ) -> pd.DataFrame:
+        if self._hbm is None:
+            self._hbm = HeatBalanceMethod(self, self.dt_hr, self.n_cycles)
+        df = self._hbm.get_space_air_temperatures(unit)
         return df
 
 
 class ThermalNetworkBuilder:
-    """Builds the thermal network of the space exterior envelope."""
+    """Builds the thermal network of the space."""
 
     @classmethod
-    def build(cls, space: 'Space') -> ThermalNetwork | None:
-        nodes = []
+    def build(cls, space: Space) -> tuple[ThermalNetwork, ThermalNetwork]:
+        # thermal network when cooling ON (space air temperature known)
+        nodes_cooling_on = []
         int_surf_node_indices = []
         for ebe in space.ext_building_elements.values():
             cls._modify_int_surf_node(ebe)
-            for node in ebe.thermal_network.nodes:
-                node.A = ebe.area_net
-            nodes.extend(ebe.thermal_network.nodes)
-            int_surf_node_indices.append(len(nodes) - 1)
+            nodes_cooling_on.extend(ebe.thermal_network.nodes)
+            int_surf_node_indices.append(len(nodes_cooling_on) - 1)
         tsn = cls._create_thermal_storage_node(space)
-        nodes.append(tsn)
-        thermal_network = ThermalNetwork(nodes, int_surf_node_indices)
-        return thermal_network
+        nodes_cooling_on.append(tsn)
+        tnw_cooling_on = ThermalNetwork(nodes_cooling_on, int_surf_node_indices)
+        # thermal network when cooling is OFF (space air temperature unknown)
+        nodes_cooling_off = [node for node in nodes_cooling_on]
+        zan = cls._create_zone_air_node(space)
+        nodes_cooling_off.insert(-1, zan)
+        tnw_cooling_off = ThermalNetwork(nodes_cooling_off, int_surf_node_indices)
+        return tnw_cooling_on, tnw_cooling_off
+
+    @staticmethod
+    def _modify_int_surf_node(ebe) -> None:
+        int_surf_node = ebe.thermal_network.nodes[-1]
+        R_surf_film = int_surf_node.R[-1]
+        R_rad = R_surf_film / ebe.F_rad
+        R_conv = R_surf_film / (1.0 - ebe.F_rad)
+        int_surf_node.R = [int_surf_node.R[0], R_conv, R_rad]
 
     @classmethod
-    def _create_thermal_storage_node(cls, space: 'Space'):
+    def _create_thermal_storage_node(cls, space: Space) -> ThermalStorageNode:
         int_surf_nodes = [
             ebe.thermal_network.nodes[-1]
             for ebe in space.ext_building_elements.values()
         ]
-        R = [Q_(isn.R[-1], 'm ** 2 * K / W') for isn in int_surf_nodes]
+        R = [Q_(isn.R_unit[-1], 'm ** 2 * K / W') for isn in int_surf_nodes]
         R.append(space.int_thermal_mass.R)
         int_thermal_mass_node = ThermalStorageNode(
             ID='internal thermal mass',
-            R_list=R,
+            R_unit_lst=R,
             C=space.int_thermal_mass.C,
             A=space.int_thermal_mass.A,
             T_input=space.T_int_fun,
-            Q_input=cls._get_Q_input_fun(space)
+            Q_input=cls._get_tsn_Q_input_fun(space),
+            windows=cls._get_windows(space),
+            int_building_elements=list(space.int_building_elements.values()),
+            ext_doors=cls._get_ext_doors(space),
+            int_doors=cls._get_int_doors(space)
         )
         return int_thermal_mass_node
 
     @classmethod
-    def _get_Q_input_fun(cls, space: 'Space') -> Callable[[float], float]:
+    def _get_tsn_Q_input_fun(cls, space: 'Space') -> Callable[[float], float]:
         windows = cls._get_windows(space)
         ext_doors = cls._get_ext_doors(space)
         int_doors = cls._get_int_doors(space)
 
-        def _Q_input(t: float) -> float:
+        def _Q_input(t: float, T_int: float | None = None) -> float:
             """
             Get the radiative heat gain at time t in seconds from 00:00:00 from
             windows, interior building elements, doors and internal heat gains
             (people, equipment, lightning).
             """
+            T_int = T_int if T_int is not None else space.T_int_fun(t)
             Q_rad_wnd = sum(
-                wnd.get_conductive_heat_gain(t)['rad']
+                wnd.get_conductive_heat_gain(t, T_int)['rad']
                 for wnd in windows
             )
             Q_rad_wnd += sum(
@@ -434,15 +465,15 @@ class ThermalNetworkBuilder:
                 for wnd in windows
             )
             Q_rad_ibe = sum(
-                ibe.get_conductive_heat_gain(t)['rad']
+                ibe.get_conductive_heat_gain(t, T_int)['rad']
                 for ibe in space.int_building_elements.values()
             )
             Q_rad_idr = sum(
-                door.get_conductive_heat_gain(t)['rad']
+                door.get_conductive_heat_gain(t, T_int)['rad']
                 for door in int_doors
             )
             Q_rad_edr = sum(
-                door.get_conductive_heat_gain(t)['rad']
+                door.get_conductive_heat_gain(t, T_int)['rad']
                 for door in ext_doors
             )
             Q_rad_ihg = sum(
@@ -454,13 +485,23 @@ class ThermalNetworkBuilder:
 
         return _Q_input
 
-    @staticmethod
-    def _modify_int_surf_node(ebe) -> None:
-        int_surf_node = ebe.thermal_network.nodes[-1]
-        R_surf_film = int_surf_node.R[-1]
-        R_rad = R_surf_film / ebe.F_rad.m
-        R_conv = R_surf_film / (1.0 - ebe.F_rad.m)
-        int_surf_node.R = [int_surf_node.R[0], R_conv, R_rad]
+    @classmethod
+    def _create_zone_air_node(cls, space: Space) -> ZoneAirNode:
+        int_surf_nodes = [
+            ebe.thermal_network.nodes[-1]
+            for ebe in space.ext_building_elements.values()
+        ]
+        R = [Q_(isn.R_unit[-1], 'm ** 2 * K / W') for isn in int_surf_nodes]
+        R.append(space.int_thermal_mass.R)
+        zan = ZoneAirNode(
+            ID='zone air node',
+            R_unit_lst=R,
+            windows=cls._get_windows(space),
+            int_building_elements=list(space.int_building_elements.values()),
+            ext_doors=cls._get_ext_doors(space),
+            int_doors=cls._get_int_doors(space)
+        )
+        return zan
 
     @staticmethod
     def _get_windows(space: 'Space'):
@@ -492,10 +533,20 @@ class ThermalNetworkBuilder:
 
 class HeatBalanceMethod:
 
-    def __init__(self, space: Space, dt_hr: float = 1.0, n_cycles: int = 6):
+    def __init__(
+        self,
+        space: Space,
+        dt_hr: float = 1.0,
+        n_cycles: int = 6
+    ):
         self.space = space
-        thermal_network = ThermalNetworkBuilder.build(space)
-        self._thermal_network = ThermalNetworkSolver.solve(thermal_network, dt_hr, n_cycles)
+        tnw_cooling_on, tnw_cooling_off = ThermalNetworkBuilder.build(space)
+        self._thermal_network = ThermalNetworkSolver.solve(
+            thermal_networks=(tnw_cooling_on, tnw_cooling_off),
+            cooling_schedule=space.cooling_schedule,
+            dt_hr=dt_hr,
+            n_cycles=n_cycles
+        )
         self._dt = dt_hr * 3600
 
     def _calculate_conv_ext_build_elem_gain(self, k: int, T_nodes: list[float]) -> float:
@@ -504,12 +555,16 @@ class HeatBalanceMethod:
         time index k
         """
         Q_env = 0.0
-        T_int = self.space.T_int_fun(k * self._dt)
+        if self.space.cooling_schedule is None:
+            # cooling always ON
+            T_int = self.space.T_int_fun(k * self._dt)
+        else:
+            # cooling may be ON or OFF depending on the cooling schedule
+            T_int = T_nodes[-2]
         for i in self._thermal_network.int_surf_node_indices:
             T_isn = T_nodes[i]
             R_conv = self._thermal_network.nodes[i].R[1]
-            q_env = (T_isn - T_int) / R_conv
-            Q_env += q_env * self._thermal_network.nodes[i].A
+            Q_env += (T_isn - T_int) / R_conv
         return Q_env
 
     def _calculate_conv_therm_mass_gain(self, k: int, T_nodes: list[float]) -> float:
@@ -518,14 +573,15 @@ class HeatBalanceMethod:
         index k
         """
         T_itm = T_nodes[-1]
-        T_int = self.space.T_int_fun(k * self._dt)
+        if self.space.cooling_schedule is None:
+            T_int = self.space.T_int_fun(k * self._dt)
+        else:
+            T_int = T_nodes[-2]
         R_conv = self._thermal_network.nodes[-1].R[-1]
-        q = (T_itm - T_int) / R_conv
-        A = self._thermal_network.nodes[-1].A
-        Q = A * q
+        Q = (T_itm - T_int) / R_conv
         return Q
 
-    def _calculate_conv_window_gain(self, k: int) -> float:
+    def _calculate_conv_window_gain(self, k: int, T_nodes: list[float]) -> float:
         """
         Calculate heat flow from windows to space air at time index k.
         """
@@ -534,25 +590,37 @@ class HeatBalanceMethod:
             for ebe in self.space.ext_building_elements.values()
             for window in ebe.windows if ebe.windows
         ]
-        Q = sum(
-            window.get_conductive_heat_gain(k * self._dt)['conv'] +
+        Q_conv_sol = sum(
             window.get_solar_heat_gain(k * self._dt)['conv']
             for window in windows
         )
+        if self.space.cooling_schedule is None:
+            T_int = self.space.T_int_fun(k * self._dt)
+        else:
+            T_int = T_nodes[-2]
+        Q_conv_cond = sum(
+            window.get_conductive_heat_gain(k * self._dt, T_int)['conv']
+            for window in windows
+        )
+        Q = Q_conv_sol + Q_conv_cond
         return Q
 
-    def _calculate_conv_int_build_elem_gain(self, k: int) -> float:
+    def _calculate_conv_int_build_elem_gain(self, k: int, T_nodes: list[float]) -> float:
         """
         Calculate heat flow from interior building elements to space air at
         time index k
         """
+        if self.space.cooling_schedule is None:
+            T_int = self.space.T_int_fun(k * self._dt)
+        else:
+            T_int = T_nodes[-2]
         Q = sum(
-            ibe.get_conductive_heat_gain(k * self._dt)['conv']
+            ibe.get_conductive_heat_gain(k * self._dt, T_int)['conv']
             for ibe in self.space.int_building_elements.values()
         )
         return Q
 
-    def _calculate_conv_int_door_gain(self, k: int) -> float:
+    def _calculate_conv_int_door_gain(self, k: int, T_nodes: list[float]) -> float:
         """
         Calculate heat flow from interior doors to space air at time index k.
         """
@@ -561,13 +629,17 @@ class HeatBalanceMethod:
             for ibe in self.space.int_building_elements.values()
             for door in ibe.doors if ibe.doors
         ]
+        if self.space.cooling_schedule is None:
+            T_int = self.space.T_int_fun(k * self._dt)
+        else:
+            T_int = T_nodes[-2]
         Q = sum(
-            door.get_conductive_heat_gain(k * self._dt)['conv']
+            door.get_conductive_heat_gain(k * self._dt, T_int)['conv']
             for door in doors
         )
         return Q
 
-    def _calculate_conv_ext_door_gain(self, k: int) -> float:
+    def _calculate_conv_ext_door_gain(self, k: int, T_nodes: list[float]) -> float:
         """
         Calculate heat flow from exterior doors to space air at time index k.
         """
@@ -576,8 +648,12 @@ class HeatBalanceMethod:
             for ebe in self.space.ext_building_elements.values()
             for door in ebe.doors if ebe.doors
         ]
+        if self.space.cooling_schedule is None:
+            T_int = self.space.T_int_fun(k * self._dt)
+        else:
+            T_int = T_nodes[-2]
         Q = sum(
-            door.get_conductive_heat_gain(k * self._dt)['conv']
+            door.get_conductive_heat_gain(k * self._dt, T_int)['conv']
             for door in doors
         )
         return Q
@@ -603,6 +679,25 @@ class HeatBalanceMethod:
         )
         return Q
 
+    def _calculate_sen_vent_gain(self, k: int, T_nodes: list[float]) -> float:
+        """
+        Calculate sensible heat gain to space air at time index k.
+        """
+        if self.space.ventilation is not None:
+            if self.space.cooling_schedule is None:
+                T_int = self.space.T_int_fun(k * self._dt)
+            else:
+                T_int = T_nodes[-2]
+            Q = self.space.ventilation.Q_ven_sen(k * self._dt, T_int)
+            return Q
+        return 0.0
+
+    def _calculate_lat_vent_gain(self, k: int) -> float:
+        if self.space.ventilation is not None:
+            Q = self.space.ventilation.Q_ven_lat(k * self._dt)
+            return Q
+        return 0.0
+
     def _calculate_thermal_storage_heat_flows(
         self,
         k: int,
@@ -616,43 +711,26 @@ class HeatBalanceMethod:
         # heat flow from exterior building elements into internal thermal mass
         # at time index k
         Q_rad_ext = 0.0
-        A_itm = self._thermal_network.nodes[-1].A
         T_itm = T_nodes[-1]
         for i in self._thermal_network.int_surf_node_indices:
             T_isn = T_nodes[i]
             R_rad = self._thermal_network.nodes[i].R[-1]
-            Q_rad_ext += A_itm * (T_isn - T_itm) / R_rad
-
+            Q_rad_ext += (T_isn - T_itm) / R_rad
         # heat flow from windows, doors and interior building elements into
         # internal thermal mass at time index k
-        Q_rad_other = self._thermal_network.nodes[-1].Q_input(k * self._dt)
-
+        if self.space.cooling_schedule is None:
+            T_int = self.space.T_int_fun(k * self._dt)
+        else:
+            T_int = T_nodes[-2]
+        Q_rad_other = self._thermal_network.nodes[-1].Q_input(k * self._dt, T_int)
         Q_in = Q_rad_ext + Q_rad_other
-
         # heat flow from internal thermal mass to space air at time index k
         T_int = self.space.T_int_fun(k * self._dt)
         R_itm = self._thermal_network.nodes[-1].R[-1]
-        Q_out = A_itm * (T_itm - T_int) / R_itm
-
+        Q_out = (T_itm - T_int) / R_itm
         # heat stored in internal thermal mass at time index k
         Q_sto = Q_in - Q_out
-
         return T_itm, Q_in, Q_out, Q_sto
-
-    def _calculate_sen_vent_gain(self, k: int) -> float:
-        """
-        Calculate sensible heat gain to space air at time index k.
-        """
-        if self.space.ventilation is not None:
-            Q = self.space.ventilation.Q_ven_sen(k * self._dt)
-            return Q
-        return 0.0
-
-    def _calculate_lat_vent_gain(self, k: int) -> float:
-        if self.space.ventilation is not None:
-            Q = self.space.ventilation.Q_ven_lat(k * self._dt)
-            return Q
-        return 0.0
 
     def get_heat_gains(self, unit: str = 'W') -> pd.DataFrame:
         """
@@ -675,29 +753,25 @@ class HeatBalanceMethod:
         }
         # noinspection PyProtectedMember
         for k, T_nodes in enumerate(self._thermal_network._T_node_table):
-
             Q_gains['time'].append(time_from_decimal_hour(k * self._dt / 3600))
-
             # heat flow from exterior building elements to space air at time
             # index k
             Q_gains['Q_conv_ext'].append(
                 Q_(
                     self._calculate_conv_ext_build_elem_gain(k, T_nodes) +
-                    self._calculate_conv_ext_door_gain(k),
+                    self._calculate_conv_ext_door_gain(k, T_nodes),
                     'W'
                 ).to(unit).m
             )
-
             # heat flow from interior building elements to space air at time
             # index k
             Q_gains['Q_conv_int'].append(
                 Q_(
-                    self._calculate_conv_int_build_elem_gain(k) +
-                    self._calculate_conv_int_door_gain(k),
+                    self._calculate_conv_int_build_elem_gain(k, T_nodes) +
+                    self._calculate_conv_int_door_gain(k, T_nodes),
                     'W'
                 ).to(unit).m
             )
-
             # heat flow from internal thermal mass to space air at time
             # index k
             Q_gains['Q_conv_itm'].append(
@@ -706,15 +780,13 @@ class HeatBalanceMethod:
                     'W'
                 ).to(unit).m
             )
-
             # heat flow from windows to space air at time index k
             Q_gains['Q_conv_wnd'].append(
                 Q_(
-                    self._calculate_conv_window_gain(k),
+                    self._calculate_conv_window_gain(k, T_nodes),
                     'W'
                 ).to(unit).m
             )
-
             # heat flow from internal heat gains to space air at time index k
             Q_gains['Q_conv_ihg'].append(
                 Q_(
@@ -722,15 +794,13 @@ class HeatBalanceMethod:
                     'W'
                 ).to(unit).m
             )
-
             # heat flow from ventilation to space air at time index k
             Q_gains['Q_sen_vent'].append(
                 Q_(
-                    self._calculate_sen_vent_gain(k),
+                    self._calculate_sen_vent_gain(k, T_nodes),
                     'W'
                 ).to(unit).m
             )
-
             # sensible cooling load of space air at time index k
             Q_gains['Q_sen_load'].append(
                 Q_gains['Q_conv_ext'][-1] +
@@ -740,7 +810,6 @@ class HeatBalanceMethod:
                 Q_gains['Q_conv_ihg'][-1] +
                 Q_gains['Q_sen_vent'][-1]
             )
-
             # latent heat transfer from internal heat gains to space air at
             # time index k
             Q_gains['Q_lat_ihg'].append(
@@ -749,7 +818,6 @@ class HeatBalanceMethod:
                     'W'
                 ).to(unit).m
             )
-
             # latent heat transfer from ventilation to space air at time index
             # k
             Q_gains['Q_lat_vent'].append(
@@ -758,13 +826,11 @@ class HeatBalanceMethod:
                     'W'
                 ).to(unit).m
             )
-
             # latent cooling load of space air at time index k
             Q_gains['Q_lat_load'].append(
                 Q_gains['Q_lat_ihg'][-1] +
                 Q_gains['Q_lat_vent'][-1]
             )
-
         Q_gains = pd.DataFrame(Q_gains)
         Q_gains['Q_tot_load'] = Q_gains['Q_sen_load'] + Q_gains['Q_lat_load']
         return Q_gains
@@ -774,7 +840,6 @@ class HeatBalanceMethod:
         T_unit: str = 'degC',
         Q_unit: str = 'W'
     ) -> pd.DataFrame:
-
         Q_therm_storage = {
             'time': [],
             'T_itm': [],
@@ -782,7 +847,6 @@ class HeatBalanceMethod:
             'Q_out': [],
             'Q_sto': []
         }
-
         # noinspection PyProtectedMember
         for k, T_nodes in enumerate(self._thermal_network._T_node_table):
             tup = self._calculate_thermal_storage_heat_flows(k, T_nodes)
@@ -801,6 +865,25 @@ class HeatBalanceMethod:
             Q_therm_storage['Q_sto'].append(
                 Q_(tup[3], 'W').to(Q_unit).m
             )
-
         Q_therm_storage = pd.DataFrame(Q_therm_storage)
         return Q_therm_storage
+
+    def get_space_air_temperatures(
+        self,
+        unit: str = 'degC'
+    ) -> pd.DataFrame:
+        d = {
+            'time': [],
+            'T_int': []
+        }
+        # noinspection PyProtectedMember
+        for k, T_nodes in enumerate(self._thermal_network._T_node_table):
+            t = k * self._dt
+            if self.space.cooling_schedule is None:
+                T_int = self.space.T_int_fun(t)
+            else:
+                T_int = T_nodes[-2]
+            d['time'].append(time_from_decimal_hour(t / 3600))
+            d['T_int'].append(Q_(T_int, 'degC').to(unit).m)
+        df = pd.DataFrame(d)
+        return df

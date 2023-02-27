@@ -1,4 +1,4 @@
-from typing import Dict, Callable, cast
+from typing import cast
 from dataclasses import dataclass
 import shelve
 import numpy as np
@@ -23,7 +23,7 @@ class WindowThermalProperties:
         to the interior.
         """
 
-        def __init__(self, cog_dir: Dict[float, float], cog_dif: float, wnd: float):
+        def __init__(self, cog_dir: dict[float, float], cog_dif: float, wnd: float):
             self._cog_dir = (list(cog_dir.keys()), list(cog_dir.values()))
             self.cog_dif = cog_dif
             self.wnd = wnd
@@ -36,7 +36,7 @@ class WindowThermalProperties:
         self,
         ID: str,
         U: Quantity,
-        SHGC_cog_dir: Dict[float, float],
+        SHGC_cog_dir: dict[float, float],
         SHGC_cog_dif: float,
         SHGC_wnd: float
     ) -> None:
@@ -131,7 +131,7 @@ class InteriorShadingDevice:
     only a value to parameter `IAC_dif`.
     """
     IAC_dif: float
-    F_rad: Quantity
+    F_rad: float
     IAC_0: float | None = None
     IAC_60: float | None = None
     louver_orient: str = 'horizontal'
@@ -143,8 +143,7 @@ class Window:
         self.ID: str = ''
         self._exterior_surface: ExteriorSurface | None = None
         self.therm_props: WindowThermalProperties | None = None
-        self._T_int_fun: Callable[[float], float] | None = None
-        self.F_rad: Quantity | None = None,
+        self.F_rad: float | None = None
         self._ext_shading_dev: ExteriorShadingDevice | None = None
         self._int_shading_dev: InteriorShadingDevice | None = None
 
@@ -158,8 +157,7 @@ class Window:
         height: Quantity,
         climate_data: ClimateData,
         therm_props: WindowThermalProperties,
-        T_int_fun: Callable[[float], float],
-        F_rad: Quantity = Q_(0.46, 'frac'),
+        F_rad: float = 0.46,
         ext_shading_dev: ExteriorShadingDevice | None = None,
         int_shading_dev: InteriorShadingDevice | None = None
     ) -> 'Window':
@@ -182,9 +180,6 @@ class Window:
             Instance of `ClimateData` class, containing the climatic design data.
         therm_props:
             The thermal and solar properties of the window.
-        T_int_fun:
-            Function that returns the indoor air temperature in degC at time t
-            seconds from 00:00:00.
         F_rad: default 0.46
             The fraction of conductive and diffuse solar heat gain that is
             transferred by radiation to the interior thermal mass of the space.
@@ -210,17 +205,29 @@ class Window:
             surface_absorptance=None
         )
         window.therm_props = therm_props
-        window._T_int_fun = T_int_fun
         window.F_rad = F_rad
         window._ext_shading_dev = ext_shading_dev
         window._int_shading_dev = int_shading_dev
         return window
 
     @property
-    def area(self):
+    def area(self) -> Quantity:
         return self._exterior_surface.area
 
-    def get_conductive_heat_gain(self, t: float) -> Dict[str, float]:
+    @property
+    def UA(self) -> float:
+        U = self.therm_props.U.to('W / (m ** 2 * K)').m
+        A = self.area.to('m ** 2').m
+        return U * A
+
+    def T_ext(self, t: float) -> float:
+        return self._exterior_surface.climate_data.Tdb_ext(t)
+
+    def get_conductive_heat_gain(
+        self,
+        t: float,
+        T_int: float
+    ) -> dict[str, float]:
         """
         Get conductive heat gain through window (positive from outdoors to
         indoors) at time t seconds from 00:00:00.
@@ -231,10 +238,9 @@ class Window:
         """
         U = self.therm_props.U.to('W / (m ** 2 * K)').m
         A = self.area.to('m ** 2').m
-        T_int = self._T_int_fun(t)
         T_ext = self._exterior_surface.climate_data.Tdb_ext(t)
         Q = U * A * (T_ext - T_int)
-        F_rad = self.F_rad.to('frac').m
+        F_rad = self.F_rad
         Q_rad = F_rad * Q
         Q_conv = Q - Q_rad
         return {'rad': Q_rad, 'conv': Q_conv, 'T_ext': T_ext}
@@ -283,7 +289,7 @@ class Window:
         else:
             return self._int_shading_dev.IAC_dif
 
-    def get_solar_heat_gain(self, t: float) -> Dict[str, float]:
+    def get_solar_heat_gain(self, t: float) -> dict[str, float]:
         """
         Get solar heat gain through window (positive from outdoors to indoors)
         at time t seconds from 00:00:00.
@@ -308,11 +314,11 @@ class Window:
         if self._int_shading_dev is not None:
             IAC_dir = self._IAC_dir(t)
             IAC_dif = self._int_shading_dev.IAC_dif
-            F_rad = self._int_shading_dev.F_rad.to('frac').m
+            F_rad = self._int_shading_dev.F_rad
         else:
             IAC_dir = 1.0
             IAC_dif = 1.0
-            F_rad = self.F_rad.to('frac').m
+            F_rad = self.F_rad
 
         Q_dir = max(SHGC_dir * A_sunlit * I_dir * IAC_dir, 0.0)
         Q_dif = max(SHGC_dif * A * I_dif * IAC_dif, 0.0)
@@ -322,6 +328,7 @@ class Window:
 
     def get_heat_transfer(
         self,
+        T_int: Quantity,
         units: dict[str, str] | None = None
     ) -> pd.DataFrame:
         """
@@ -330,6 +337,8 @@ class Window:
 
         Parameters
         ----------
+        T_int
+            Space air temperature.
         units:
             Dictionary to specify the desired units of the returned quantities.
             Use key 'T' to set the desired units for temperature (default
@@ -343,10 +352,11 @@ class Window:
         }
         if units is not None:
             _units.update(units)
+        T_int = T_int.to('degC').m
         time_range = range(24)
         Q_wnd_gain = []
         for t in time_range:
-            Q_cond = self.get_conductive_heat_gain(t * 3600.0)
+            Q_cond = self.get_conductive_heat_gain(t * 3600.0, T_int)
             Q_sol = self.get_solar_heat_gain(t * 3600.0)
             Q_wnd_gain.append([
                 Q_(Q_cond['T_ext'], 'degC').to(_units['T']).m,

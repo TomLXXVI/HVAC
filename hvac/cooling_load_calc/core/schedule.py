@@ -1,3 +1,4 @@
+from typing import Any
 from copy import deepcopy
 from hvac import Quantity
 
@@ -61,11 +62,20 @@ class Schedule:
             'value': self.value_axis
         }
 
-    def __call__(self, t_sec: float) -> int | Quantity | bool:
-        t_hr = t_sec / 3600.0
+    def __call__(
+        self,
+        t_sec: float | None = None,
+        t_hr: float | None = None
+    ) -> Any:
+        if t_hr is None:
+            t_hr = t_sec / 3600.0
         for t_interval in self._time_intervals:
-            if t_interval[0] <= t_hr <= t_interval[1]:
+            if t_interval[0] <= t_hr < t_interval[1]:
                 i = self.time_axis.index(t_interval[0])
+                value = self.value_axis[i]
+                return value
+            elif t_hr == t_interval[1]:
+                i = self.time_axis.index(t_interval[1])
                 value = self.value_axis[i]
                 return value
         else:
@@ -84,4 +94,11 @@ class OnOffSchedule(Schedule):
 
 class TemperatureSchedule(Schedule):
     """Schedule for the setpoint temperature in a space."""
-    pass
+
+    def __call__(
+        self,
+        t_sec: float | None = None,
+        t_hr: float | None = None
+    ) -> float:
+        T = super().__call__(t_sec, t_hr)
+        return T.to('degC').m

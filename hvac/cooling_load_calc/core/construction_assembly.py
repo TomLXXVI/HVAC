@@ -1,6 +1,5 @@
 from __future__ import annotations
-
-from typing import Tuple, Dict, List, cast
+import typing
 import math
 from copy import deepcopy
 from dataclasses import dataclass
@@ -115,7 +114,8 @@ class MechanicalFastening:
 
 
 class ThermalComponent:
-    """Common base class for building components and alike, combining thermal
+    """
+    Common base class for building components and alike, combining thermal
     resistance and capacitance into one object. Shouldn't be used directly.
     This object is created by the + operator and // operator.
     """
@@ -272,7 +272,7 @@ class AirSpace(ThermalComponent):
         dT: Quantity,
         heat_flow_direction: HeatFlowDirection,
         Tmn: Quantity,
-        surface_emissivities: Tuple[Quantity, Quantity] = (Q_(0.9, 'frac'), Q_(0.9, 'frac')),
+        surface_emissivities: tuple[Quantity, Quantity] = (Q_(0.9, 'frac'), Q_(0.9, 'frac')),
         inclination_angle: Quantity | None = None
     ) -> AirSpace:
         """
@@ -349,7 +349,7 @@ class AirSpace(ThermalComponent):
     @staticmethod
     def _determine_hr(
         Tmn: Quantity,
-        surface_emissivities: Tuple[Quantity, Quantity]
+        surface_emissivities: tuple[Quantity, Quantity]
     ) -> Quantity:
         SIGMA = Q_(5.67e-8, 'W / (m ** 2 * K ** 4)')
         hro = 4 * SIGMA * Tmn.to('K') ** 3
@@ -496,7 +496,7 @@ class ConstructionAssembly:
 
     def __init__(self):
         self.ID: str = ''
-        self.layers: Dict[str, ThermalComponent] = {}
+        self.layers: dict[str, ThermalComponent] = {}
         self._thermal_component: ThermalComponent = ThermalComponent()
 
     @classmethod
@@ -737,9 +737,9 @@ class ConstructionAssembly:
             shelf[self.ID] = self
 
     @classmethod
-    def load(cls, ID: str) -> 'ConstructionAssembly':
+    def load(cls, ID: str) -> ConstructionAssembly:
         with shelve.open(cls.db_path) as shelf:
-            construction_assembly = cast('ConstructionAssembly', shelf[ID])
+            construction_assembly = typing.cast('ConstructionAssembly', shelf[ID])
             return construction_assembly
 
     @classmethod

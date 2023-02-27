@@ -1,4 +1,4 @@
-from typing import Dict, List, Any, Callable
+from typing import Any, Callable
 import math
 from scipy.interpolate import interp1d
 from hvac import Quantity
@@ -137,7 +137,7 @@ class ExteriorSurface(Surface):
         R_surf: Quantity | None = None,
         a_surf: Quantity | None = None,
         surface_color: str = 'dark-colored'
-    ) -> Dict[str, List[Any]]:
+    ) -> dict[str, list[Any]]:
         tilt = self.tilt.to('rad').m
         dT_sky = 3.9 * math.cos(tilt)
         T_arr = [
