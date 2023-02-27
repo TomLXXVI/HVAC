@@ -1,6 +1,5 @@
 from typing import Callable
 from dataclasses import dataclass
-from datetime import time
 import pandas as pd
 from hvac import Quantity
 from hvac.fluids import HumidAir
@@ -67,6 +66,7 @@ class Ventilation:
         obj = cls()
         obj.space = space
         obj.vz = ventilation_zone
+        obj.vz.add_space(space)
 
         obj.n_min = n_min.to('1 / hr').m
         obj.V_open = V_open.to('m ** 3 / hr').m
@@ -208,6 +208,7 @@ class Space:
         self.dt_hr: float = 1.0
         self.n_cycles: int = 6
         self._hbm: HeatBalanceMethod | None = None
+        self.Q_input_fun: Callable[[float, float | None], float] | None = None
 
     @classmethod
     def create(
@@ -219,15 +220,41 @@ class Space:
         climate_data: ClimateData,
         T_int_fun: Callable[[float], float],
         RH_int: Quantity = Q_(50, 'pct'),
-        ventilation_zone: VentilationZone | None = None,
         cooling_schedule: OnOffSchedule | None = None
     ) -> 'Space':
+        """
+        Create a space.
+
+        Parameters
+        ----------
+        ID:
+            Name of the space.
+        height:
+            Height of the space (vertical dimension).
+        width:
+            Width of the space (1st horizontal dimension).
+        length:
+            Length of the space (2nd horizontal dimension).
+        climate_data:
+            Instance of `ClimateData`, containing the relevant climatic data
+            for the "design day".
+        T_int_fun:
+            Function that takes the time t in seconds from 00:00:00 and returns
+            the setpoint space air temperature at that time. Can also be
+            an instance of class `TemperatureSchedule`.
+        RH_int:
+            Design value for the relative humidity in the space (used to
+            calculate the latent ventilation load).
+        cooling_schedule:
+            Function that takes the time t in seconds from 00:00:00 and returns
+            a boolean to indicate if the cooling system is ON (True) or OFF
+            (False). Can also be an instance of class `OnOffSchedule`.
+        """
         space = cls()
         space.ID = ID
         space.height = height
         space.width = width
         space.length = length
-        space.ventilation_zone = ventilation_zone
         space.climate_data = climate_data
         space.T_int_fun = T_int_fun
         space.RH_int = RH_int
@@ -252,6 +279,34 @@ class Space:
         surface_absorptance: Quantity | None = None,
         surface_color: str = 'dark-colored'
     ) -> ExteriorBuildingElement:
+        """
+        Add an exterior building element to the space (exterior wall, roof)
+
+        Parameters
+        ----------
+        ID:
+            Name for the building element.
+        azimuth:
+            Azimuth angle of the building element.
+        tilt:
+            Tilt angle of the building element.
+        width:
+            The width of the building element.
+        height:
+            The height or length of the building element.
+        construction_assembly:
+            The construction assembly that describes the construction of
+            the building element.
+        F_rad:
+            Fraction of conductive heat flow that is transferred by radiation to
+            the interior thermal mass of the space. Default is 0.46 (see ASHRAE
+            Fundamentals 2017, Ch. 18, Table 14).
+        surface_absorptance: default None
+            The solar absorptivity of the exterior surface (see ASHRAE
+            Fundamentals 2017, Ch. 18, Table 15).
+        surface_color: ['dark-colored', 'light-colored']
+            Alternative for setting `surface_absorptance` explicitly.
+        """
         ebe = ExteriorBuildingElement.create(
             ID=ID,
             azimuth=azimuth,
@@ -277,6 +332,29 @@ class Space:
         T_adj_fun: Callable[[float], float],
         F_rad: float = 0.46
     ) -> InteriorBuildingElement:
+        """
+        Add interior building element to the space.
+
+        Parameters
+        ----------
+        ID:
+            Name for the building element.
+        width:
+            The width of the building element.
+        height:
+            The height or length of the building element.
+        construction_assembly:
+            The construction assembly that describes the construction of
+            the building element.
+        T_adj_fun:
+            Function that takes the time t in seconds from 00:00:00 and returns
+            the temperature of the adjacent space at that time. Can also be
+            an instance of class `TemperatureSchedule`.
+        F_rad:
+            Fraction of conductive heat flow that is transferred by radiation to
+            the interior thermal mass of the space. Default is 0.46 (see ASHRAE
+            Fundamentals 2017, Ch. 18, Table 14).
+        """
         ibe = InteriorBuildingElement.create(
             ID=ID,
             width=width,
@@ -289,6 +367,11 @@ class Space:
         return ibe
 
     def add_internal_heat_gain(self, ihg: InternalHeatGain) -> None:
+        """
+        Add internal heat gain to the space (see classes `EquipmentHeatGain`,
+        `LightingHeatGain`, and `PeopleHeatGain` in subpackage
+        `core.internal_heat_gains`).
+        """
         self.int_heat_gains[ihg.ID] = ihg
 
     def add_internal_thermal_mass(
@@ -322,6 +405,7 @@ class Space:
 
     def add_ventilation(
         self,
+        ventilation_zone: VentilationZone,
         n_min: Quantity = Q_(0.5, '1 / hr'),
         V_open: Quantity = Q_(0.0, 'm ** 3 / hr'),
         V_ATD_d: Quantity = Q_(0.0, 'm ** 3 / hr'),
@@ -332,9 +416,53 @@ class Space:
         T_sup: TemperatureSchedule | None = None,
         T_trf: TemperatureSchedule | None = None
     ) -> None:
+        """
+        Add ventilation to the space.
+
+        Parameters
+        ----------
+        ventilation_zone:
+            The ventilation zone the space belongs to.
+        n_min:
+            Minimum air change rate required for the space for reasons of air
+            quality/hygiene and comfort (NBN EN 12831-1, B.2.10 - Table B.7).
+            Default value applies to permanent dwelling areas (living rooms,
+            offices) and a ceiling height less than 3 m.
+        V_open: Quantity, optional
+            External air volume flow rate into the space through large openings
+            (NBN EN 12831-1, Annex G).
+        V_ATD_d:
+            Design air volume flow rate of the ATDs in the room
+            (NBN EN 12831-1, B.2.12). Only relevant if ATDs are used for
+            ventilation.
+        V_sup:
+            Supply air volume flow rate from the ventilation system into the
+            space.
+        V_trf:
+            Transfer air volume flow rate into the space from adjacent spaces.
+        V_exh:
+            Exhaust ventilation air volume flow rate from the space.
+        V_comb:
+            Air volume flow rate exhausted from the space that has not been
+            included in the exhaust air volume flow of the ventilation system
+            (typically, but not necessarily, combustion air if an open flue
+            heater is present in the heated space).
+        T_sup:
+            Temperature of the ventilation supply air after passing heat recovery
+            (see NBN EN 12831-1 §6.3.3.7) or after passive pre-cooling. Any
+            temperature fall by active pre-cooling, which requires power from a
+            cooling machine, shall not be taken into account (ventilation load is
+            not a space load in that case).
+        T_trf:
+            Temperature of the transfer air volume flow into the space from
+            another space. In case the room height of the other space is less
+            than 4 m, it is equal to the internal design temperature of the other
+            space; otherwise, it is equal to mean air temperature of the other
+            space (see NBN EN 12831-1 §6.3.8.3).
+        """
         self.ventilation = Ventilation.create(
             space=self,
-            ventilation_zone=self.ventilation_zone,
+            ventilation_zone=ventilation_zone,
             n_min=n_min,
             V_open=V_open,
             V_ATD_d=V_ATD_d,
@@ -348,6 +476,10 @@ class Space:
 
     @property
     def envelope_area(self) -> Quantity:
+        """
+        Returns the area of the exterior building elements that surround the
+        space.
+        """
         if self.ext_building_elements:
             A_env = sum(
                 ebe.area_gross
@@ -359,13 +491,22 @@ class Space:
 
     @property
     def floor_area(self) -> Quantity:
+        """
+        Returns the floor area of the space.
+        """
         return self.width * self.length
 
     @property
     def volume(self) -> Quantity:
+        """
+        Returns the space volume.
+        """
         return self.floor_area * self.height
 
     def get_heat_gains(self, unit: str = 'W') -> pd.DataFrame:
+        """
+        Returns the heat gains into the space. The default unit is Watts ('W').
+        """
         if self._hbm is None:
             self._hbm = HeatBalanceMethod(self, self.dt_hr, self.n_cycles)
         df = self._hbm.get_heat_gains(unit)
@@ -376,6 +517,11 @@ class Space:
         T_unit: str = 'degC',
         Q_unit: str = 'W'
     ) -> pd.DataFrame:
+        """
+        Returns the thermal mass temperature, the heat flow into the thermal
+        mass, the heat flow out of the thermal mass, and the heat being stored
+        in the thermal mass.
+        """
         if self._hbm is None:
             self._hbm = HeatBalanceMethod(self, self.dt_hr, self.n_cycles)
         df = self._hbm.get_thermal_storage_heat_flows(T_unit, Q_unit)
@@ -385,6 +531,9 @@ class Space:
         self,
         unit: str = 'degC'
     ) -> pd.DataFrame:
+        """
+        Returns the space air temperature.
+        """
         if self._hbm is None:
             self._hbm = HeatBalanceMethod(self, self.dt_hr, self.n_cycles)
         df = self._hbm.get_space_air_temperatures(unit)
@@ -496,6 +645,7 @@ class ThermalNetworkBuilder:
         zan = ZoneAirNode(
             ID='zone air node',
             R_unit_lst=R,
+            Q_input=space.Q_input_fun,
             windows=cls._get_windows(space),
             int_building_elements=list(space.int_building_elements.values()),
             ext_doors=cls._get_ext_doors(space),

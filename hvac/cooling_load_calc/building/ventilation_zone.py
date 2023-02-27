@@ -37,6 +37,44 @@ class VentilationZone:
         f_dir: float = 2.0,
         f_iz: float = 0.5
     ) -> 'VentilationZone':
+        """
+        Create ventilation zone.
+
+        Parameters
+        ----------
+        ID:
+            Name of the ventilation zone.
+        q_env_50:
+            Air permeability of building envelope at a pressure difference of 50
+            Pa between interior and exterior with any ATDs closed or sealed
+            (NBN EN 12831-1, B.2.10).
+        dP_ATD_d:
+            Design pressure difference of the ATDs in the zone
+            (NBN EN 12831-1, B.2.12).
+        v_leak: float
+            Pressure exponent for air leakages (NBN EN 12831-1, B.2.13).
+        f_fac: float
+            Adjustment factor for the number of wind exposed facades of the zone
+            (NBN EN 12831-1, B.2.15). Default value applies to more than 1
+            exposed facade.
+        f_V: float
+            Coefficient for the volume flow ratio of the zone (NBN EN 12831-1,
+            B.2.11 - Table B.8). Default value applies to more than 1 exposed
+            facade, height of the zone above ground level between 0 and 50
+            m, normal shielding, and a zone height between 5 and 10 m.
+        f_dir: float
+            Factor for the orientation of the zone (NBN EN 12831-1, B.2.14).
+            Default value according to B.2.14.
+        f_iz: Quantity
+            Ratio between the minimum air volume flow rates of single heated
+            spaces and the air volume flow of the entire zone (NBN EN 12831-1,
+            B.2.9 - Table B.5). Default value applies to a zone with 2 or more
+            spaces.
+
+        Returns
+        -------
+        Instance of `VentilationZone`.
+        """
         obj = cls()
         obj.ID = ID
         obj.q_env_50 = q_env_50.to('m ** 3 / (m ** 2 * hr)').m

@@ -434,7 +434,7 @@ class ZoneAirNode(AbstractNode):
             - sum(idr.UA * idr.T_adj(k * self.dt) for idr in self.int_doors)
         )
         if self.Q_input is not None:
-            return b + self.Q_input(k * self.dt, None)
+            return b - self.Q_input(k * self.dt, None)
         else:
             return b
 
