@@ -1,5 +1,4 @@
-from typing import Dict, List, Callable
-from datetime import datetime
+from typing import Callable
 import pandas as pd
 from hvac import Quantity
 from hvac.climate import ClimateData
@@ -150,9 +149,9 @@ class ExteriorBuildingElement:
         self._thermal_network: ThermalNetwork | None = None
         self.T_int_fun: Callable[[float], float] | None = None
         self.F_rad: float | None = None
-        self._heat_transfer: Dict[str, List[Quantity]] | None = None
-        self.windows: List[Window] = []
-        self.doors: List['ExteriorBuildingElement'] = []
+        self._heat_transfer: dict[str, list[Quantity]] | None = None
+        self.windows: dict[str, Window] = {}
+        self.doors: dict[str, 'ExteriorBuildingElement'] = {}
 
     @classmethod
     def create(
@@ -194,8 +193,8 @@ class ExteriorBuildingElement:
             Object that defines the construction of the building element. See
             class ConstructionAssembly.
         T_int_fun: Callable
-            Function that returns the indoor air temperature for each hour of
-            the day.
+            Function that returns the indoor air temperature at time t expressed
+            in seconds from 00:00:00. May also be an instance of `TemperatureSchedule`.
         F_rad: float, default 0.46
             Fraction of conductive heat flow that is transferred by radiation
             to the internal mass of the space (ASHRAE Fundamentals 2017, Ch. 18,
@@ -243,10 +242,10 @@ class ExteriorBuildingElement:
     def area_net(self) -> Quantity:
         A_net = self._exterior_surface.area
         if self.windows:
-            A_wnd = sum(window.area for window in self.windows)
+            A_wnd = sum(window.area for window in self.windows.values())
             A_net -= A_wnd
         if self.doors:
-            A_drs = sum(door.area_gross for door in self.doors)
+            A_drs = sum(door.area_gross for door in self.doors.values())
             A_net -= A_drs
         return A_net
 
@@ -254,13 +253,37 @@ class ExteriorBuildingElement:
     def area_gross(self) -> Quantity:
         return self._exterior_surface.area
 
-    @property
-    def irr_profile(self) -> Dict[str, List[datetime] | List[Quantity]]:
-        return self._exterior_surface.irr_profile
+    def irr_profile(self, unit_theta_i: str = 'deg', unit_I: str = 'W / m ** 2') -> pd.DataFrame:
+        d = self._exterior_surface.irr_profile
+        time = [dt.time() for dt in d['t']]
+        theta_i = [theta_i.to(unit_theta_i).m for theta_i in d['theta_i']]
+        glo_sur = [glo_sur.to(unit_I).m for glo_sur in d['glo_sur']]
+        dir_sur = [dir_sur.to(unit_I).m for dir_sur in d['dir_sur']]
+        dif_sur = [dif_sur.to(unit_I).m for dif_sur in d['dif_sur']]
+        d = {
+            'theta_i': theta_i,
+            'glo_sur': glo_sur,
+            'dir_sur': dir_sur,
+            'dif_sur': dif_sur
+        }
+        df = pd.DataFrame(data=d, index=time)
+        return df
 
-    @property
-    def T_sol_profile(self) -> Dict[str, List[datetime] | List[Quantity]]:
-        return self._exterior_surface.T_sol_profile
+    def temp_profile(self, unit_T: str = 'degC') -> pd.DataFrame:
+        d_T_sol = self._exterior_surface.T_sol_profile
+        d_T_db = self._exterior_surface.climate_data.Tdb_profile
+        d_T_wb = self._exterior_surface.climate_data.Twb_profile
+        time = [dt.time() for dt in d_T_sol['t']]
+        T_sol = [T_sol.to(unit_T).m for T_sol in d_T_sol['T']]
+        T_db = [T_db.to(unit_T).m for T_db in d_T_db['T']]
+        T_wb = [T_wb.to(unit_T).m for T_wb in d_T_wb['T']]
+        d = {
+            'T_db': T_db,
+            'T_wb': T_wb,
+            'T_sol': T_sol
+        }
+        df = pd.DataFrame(data=d, index=time)
+        return df
 
     def add_window(
         self,
@@ -272,6 +295,36 @@ class ExteriorBuildingElement:
         ext_shading_dev: ExteriorShadingDevice | None = None,
         int_shading_dev: InteriorShadingDevice | None = None
     ) -> None:
+        """
+        Add a window to the exterior building element.
+
+        Parameters
+        ----------
+        ID:
+            Identifier for the window.
+        width:
+            The width of the window.
+        height:
+            The height (or length) of the window.
+        therm_props:
+            Instance of class `WindowThermalProperties` containing the U-value
+            of the entire window, the center-of-glass SHGCs for direct solar
+            radiation at different solar incidence angles, the center-of-glass
+            SHGC for diffuse solar radiation, and an overall SHGC for the
+            entire window at normal incidence.
+        F_rad: default 0.46
+            The fraction of conductive and diffuse solar heat gain that is
+            transferred by radiation to the interior thermal mass of the space.
+            (see ASHRAE Fundamentals 2017, chapter 18, table 14).
+        ext_shading_dev: default None
+            See class `ExternalShadingDevice`. E.g. overhang or recessed window.
+            In case a window is equipped with an external shading device, or in
+            case of a recessed window, part of the window may be shaded depending
+            on the position of the sun during the course of day.
+        int_shading_dev: default None
+            See class `InteriorShadingDevice`. E.g. louvered shades, roller
+            shades, draperies, insect screens.
+        """
         window = Window.create(
             ID=ID,
             azimuth=self._exterior_surface.azimuth,
@@ -284,7 +337,7 @@ class ExteriorBuildingElement:
             ext_shading_dev=ext_shading_dev,
             int_shading_dev=int_shading_dev
         )
-        self.windows.append(window)
+        self.windows[window.ID] = window
 
     def add_door(
         self,
@@ -296,6 +349,11 @@ class ExteriorBuildingElement:
         surface_absorptance: Quantity | None = None,
         surface_color: str = 'dark-colored'
     ) -> None:
+        """
+        Add door to exterior building element. An exterior door is also
+        regarded as an exterior building element. See class method `create(...)`
+        for more explanation about the parameters.
+        """
         door = ExteriorBuildingElement.create(
             ID=ID,
             azimuth=self._exterior_surface.azimuth,
@@ -309,18 +367,21 @@ class ExteriorBuildingElement:
             surface_absorptance=surface_absorptance,
             surface_color=surface_color
         )
-        self.doors.append(door)
+        self.doors[door.ID] = door
 
     @property
     def UA(self) -> float:
+        # for internal use only
         U = self.construction_assembly.U.to('W / (m ** 2 * K)').m
         A = self.area_net.to('m ** 2').m
         return U * A
 
     def T_sol(self, t: float) -> float:
+        # for internal use only
         return self._exterior_surface.T_sol(t)
 
-    def get_conductive_heat_gain(self, t: float, T_int: float) -> Dict[str, float]:
+    def get_conductive_heat_gain(self, t: float, T_int: float) -> dict[str, float]:
+        # for internal use only
         # note: the **steady-state** conductive heat gain is calculated.
         U = self.construction_assembly.U.to('W / (m ** 2 * K)').m
         A = self.area_net.to('m ** 2').m
@@ -382,7 +443,7 @@ class ExteriorBuildingElement:
                 R_int = tnw_solved.R_int
                 Q_int = (T_node_int - T_int) / R_int
                 R_tot = self.construction_assembly.R.to('m ** 2 * K / W')
-                A = self.construction_assembly.area.to('m ** 2')
+                A = self.area_net.to('m ** 2')
                 q_steady = (T_sol - T_int) / R_tot
                 Q_steady = q_steady * A
                 self._heat_transfer['Q_ext'].append(Q_ext.to(unit).m)
@@ -401,7 +462,7 @@ class InteriorBuildingElement:
         self.construction_assembly: Quantity | None = None
         self.T_adj_fun: Callable[[float], float] | None = None
         self.F_rad: float = 0.46
-        self.doors: List['InteriorBuildingElement'] = []
+        self.doors: dict[str, 'InteriorBuildingElement'] = {}
 
     @classmethod
     def create(
@@ -426,7 +487,7 @@ class InteriorBuildingElement:
     def area_net(self) -> Quantity:
         A_net = self.area_gross
         if self.doors:
-            A_drs = sum(door.area_gross for door in self.doors)
+            A_drs = sum(door.area_gross for door in self.doors.values())
             A_net -= A_drs
         return A_net
 
@@ -443,7 +504,7 @@ class InteriorBuildingElement:
     def T_adj(self, t: float) -> float:
         return self.T_adj_fun(t)
 
-    def get_conductive_heat_gain(self, t: float, T_int: float) -> Dict[str, float]:
+    def get_conductive_heat_gain(self, t: float, T_int: float) -> dict[str, float]:
         U = self.construction_assembly.U.to('W / (m ** 2 * K)').m
         A = self.area_net.to('m ** 2').m
         T_adj = self.T_adj_fun(t)
@@ -468,4 +529,4 @@ class InteriorBuildingElement:
             F_rad=F_rad,
             T_adj_fun=self.T_adj_fun
         )
-        self.doors.append(door)
+        self.doors[door.ID] = door

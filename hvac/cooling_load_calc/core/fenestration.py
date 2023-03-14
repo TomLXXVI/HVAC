@@ -48,15 +48,18 @@ class WindowThermalProperties:
         ID:
             Identifier for the type of window
         U:
-            Overall U value of the window, including edge effects and frame
-            (see ASHRAE 2017, Ch. 15, Table 4).
+            Overall U value of the entire window, including edge effects and frame
+            (see ASHRAE Fundamentals 2017, Ch. 15, Table 4).
         SHGC_cog_dir:
             Dictionary of which the keys are solar incidence angles and the
-            values the corresponding SHGC value.
+            values the corresponding SHGC value (see ASHRAE Fundamentals 2017,
+            Ch. 15, Table 10).
         SHGC_cog_dif:
-            The SHGC for diffuse solar radiation.
+            The SHGC for diffuse solar radiation (see ASHRAE Fundamentals 2017,
+            Ch. 15, Table 10).
         SHGC_wnd:
-            The SHGC of the entire window at normal incidence.
+            The SHGC of the entire window at normal incidence (see ASHRAE
+            Fundamentals 2017, Ch. 15, Table 10).
         """
         self.ID = ID
         self.U = U
@@ -77,11 +80,20 @@ class WindowThermalProperties:
         with shelve.open(cls.db_path) as shelf:
             return list(shelf.keys())
 
+    def __str__(self):
+        str_ = f"Window-type: {self.ID}\n"
+        str_ += '-' * len(str_[:-1]) + '\n'
+        str_ += f"\tU entire window: {self.U.to('W / (m ** 2 * K)'):~P.1f}\n"
+        str_ += f"\tSHGC(0°) direct radiation: {self.SHGC.cog_dir(0):.1f}\n"
+        str_ += f"\tSHGC diffuse radiation: {self.SHGC.cog_dif:.1f}\n"
+        str_ += f"\tSHGC(0°) entire window: {self.SHGC.wnd:.1f}\n"
+        return str_
+
 
 @dataclass
 class ExteriorShadingDevice:
     """
-    Could be an overhang, but also a window that is recessed in the wall.
+    Overhang over window or a recessed window.
 
     Parameters
     ----------
@@ -93,8 +105,8 @@ class ExteriorShadingDevice:
         Distance between vertical window edge and vertical side of exterior
         shading device.
     height_offset : default 0 m
-        Distance between window top edge and horizontal underside of exterior
-        shading device.
+        Distance between window's upper edge and the horizontal underside of
+        exterior shading device.
     """
     vertical_projection: Quantity = Q_(0, 'm')
     horizontal_projection: Quantity = Q_(0, 'm')
@@ -105,7 +117,8 @@ class ExteriorShadingDevice:
 @dataclass
 class InteriorShadingDevice:
     """
-    Louvered shades, roller shades, draperies or insect screens.
+    Louvered shades, roller shades, draperies or insect screens
+    (see ASHRAE Fundamentals 2017, Ch. 15, §5.2 and tables 14A to 14G).
 
     Parameters
     ----------
@@ -179,19 +192,20 @@ class Window:
         climate_data:
             Instance of `ClimateData` class, containing the climatic design data.
         therm_props:
-            The thermal and solar properties of the window.
+            See class `WindowThermalProperties`. The thermal and solar properties
+            of the window.
         F_rad: default 0.46
             The fraction of conductive and diffuse solar heat gain that is
             transferred by radiation to the interior thermal mass of the space.
-            (see Ashrae Fundamentals 2017, chapter 18, table 14).
+            (see ASHRAE Fundamentals 2017, chapter 18, table 14).
         ext_shading_dev: default None
-            External shading device, e.g. overhang or recessed window. In case
-            a window is equipped with an external shading device, or it is
-            recessed in the wall, part of the window may be shaded depending
+            See class `ExternalShadingDevice`. E.g. overhang or recessed window.
+            In case a window is equipped with an external shading device, or in
+            case of a recessed window, part of the window may be shaded depending
             on the position of the sun during the course of day.
         int_shading_dev: default None
-            Interior shading device, e.g. louvered shades, roller shades,
-            draperies, insect screen.
+            See class `InteriorShadingDevice`. E.g. louvered shades, roller
+            shades, draperies, insect screens.
         """
         window = cls()
         window.ID = ID

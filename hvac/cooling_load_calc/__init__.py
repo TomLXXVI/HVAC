@@ -7,6 +7,8 @@ from .core import (
     AirSpace,
     SurfaceLayer,
     ConstructionAssembly,
+    ExteriorBuildingElement,
+    InteriorBuildingElement,
     WindowThermalProperties,
     ExteriorShadingDevice,
     InteriorShadingDevice,

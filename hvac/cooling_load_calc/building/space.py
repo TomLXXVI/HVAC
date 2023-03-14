@@ -593,7 +593,7 @@ class ThermalNetworkBuilder:
         return int_thermal_mass_node
 
     @classmethod
-    def _get_tsn_Q_input_fun(cls, space: 'Space') -> Callable[[float], float]:
+    def _get_tsn_Q_input_fun(cls, space: Space) -> Callable[[float], float]:
         windows = cls._get_windows(space)
         ext_doors = cls._get_ext_doors(space)
         int_doors = cls._get_int_doors(space)
@@ -654,29 +654,29 @@ class ThermalNetworkBuilder:
         return zan
 
     @staticmethod
-    def _get_windows(space: 'Space'):
+    def _get_windows(space: Space):
         windows = [
             window
             for ebe in space.ext_building_elements.values()
-            for window in ebe.windows if ebe.windows
+            for window in ebe.windows.values() if ebe.windows
         ]
         return windows
 
     @staticmethod
-    def _get_ext_doors(space: 'Space'):
+    def _get_ext_doors(space: Space):
         ext_doors = [
             door
             for ebe in space.ext_building_elements.values()
-            for door in ebe.doors if ebe.doors
+            for door in ebe.doors.values() if ebe.doors
         ]
         return ext_doors
 
     @staticmethod
-    def _get_int_doors(space: 'Space'):
+    def _get_int_doors(space: Space):
         int_doors = [
             door
             for ibe in space.int_building_elements.values()
-            for door in ibe.doors if ibe.doors
+            for door in ibe.doors.values() if ibe.doors
         ]
         return int_doors
 
@@ -738,7 +738,7 @@ class HeatBalanceMethod:
         windows = [
             window
             for ebe in self.space.ext_building_elements.values()
-            for window in ebe.windows if ebe.windows
+            for window in ebe.windows.values() if ebe.windows
         ]
         Q_conv_sol = sum(
             window.get_solar_heat_gain(k * self._dt)['conv']
@@ -777,7 +777,7 @@ class HeatBalanceMethod:
         doors = [
             door
             for ibe in self.space.int_building_elements.values()
-            for door in ibe.doors if ibe.doors
+            for door in ibe.doors.values() if ibe.doors
         ]
         if self.space.cooling_schedule is None:
             T_int = self.space.T_int_fun(k * self._dt)
@@ -796,7 +796,7 @@ class HeatBalanceMethod:
         doors = [
             door
             for ebe in self.space.ext_building_elements.values()
-            for door in ebe.doors if ebe.doors
+            for door in ebe.doors.values() if ebe.doors
         ]
         if self.space.cooling_schedule is None:
             T_int = self.space.T_int_fun(k * self._dt)

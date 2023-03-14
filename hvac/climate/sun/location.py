@@ -47,9 +47,9 @@ class Location:
         name: str
             A name for the location
         lat: Quantity
-            Latitude of the location.
+            Latitude of the location (N: positive, S: negative).
         lon: Quantity
-            Longitude of the location.
+            Longitude of the location (E: positive, W: negative).
         alt: Quantity
             Altitude of the location.
         tz: str

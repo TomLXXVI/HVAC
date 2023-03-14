@@ -24,10 +24,13 @@ class Material:
         Mass density
     c: Quantity
         Specific heat capacity
+    R: Quantity | None, default None
+        Unit thermal resistance
     """
     k: Quantity = Q_(0.0, 'W / (m * K)')
     rho: Quantity = Q_(0.0, 'kg / m ** 3')
     c: Quantity = Q_(0.0, 'J / (kg * K)')
+    R: Quantity | None = None
 
 
 @dataclass
@@ -41,9 +44,15 @@ class Geometry:
         Area
     t: Quantity
         Thickness
+    w: Quantity
+        Width
+    h: Quantity
+        Height
     """
     A: Quantity = Q_(1.0, 'm ** 2')
     t: Quantity = Q_(0.0, 'm')
+    w: Quantity = Q_(float('inf'), 'm')
+    h: Quantity = Q_(float('inf'), 'm')
 
 
 class HeatFlowDirection(Enum):
@@ -71,7 +80,7 @@ class MechanicalFastening:
         number_per_unit_area: Quantity = Q_(3, '1 / m ** 2'),
         insulation_thickness: Quantity = Q_(10, 'cm'),
         length: Quantity = Q_(10, 'cm'),
-        conductivity: Quantity = Q_(45, 'W / (m * K)')
+        conductivity: Quantity = Q_(52, 'W / (m * K)')
     ):
         """
         Create `MechanicalFastening` object, used for calculating the correction
@@ -88,7 +97,7 @@ class MechanicalFastening:
             Thickness of the insulation layer.
         length: Quantity
             Length of the fastener that penetrates the insulation layer.
-        conductivity: Quantity, default 45 W / (m.K) for steel
+        conductivity: Quantity, default 52 W / (m.K) for steel
             Thermal conductivity of the fastener.
 
         Returns
@@ -110,7 +119,7 @@ class MechanicalFastening:
         of mechanical fasteners in the insulation layer of the building
         element."""
         U_cor_factor = self._alpha * self._kf * self._Af * self._nf / self._t_ins
-        return U_cor_factor
+        return U_cor_factor.to('W / (m ** 2 * K)')
 
 
 class ThermalComponent:
@@ -181,11 +190,12 @@ class ThermalComponent:
         return therm_comp
 
     def __str__(self):
-        l1 = f"Component '{self.ID}'\n"
-        l2 = f"\tR: {self.R.to('m ** 2 * K / W'):~P.2f}\n"
-        l3 = f"\tC: {self.C.to('J / (m ** 2 * K)'):~P.2f}\n"
-        l4 = f"\tslices: {self.slices}\n"
-        return l1 + l2 + l3 + l4
+        l1 = f"Layer '{self.ID}'\n"
+        l2 = f"\tt: {self.geometry.t.to('m'):~P.3f}\n"
+        l3 = f"\tR: {self.R.to('m ** 2 * K / W'):~P.2f}\n"
+        l4 = f"\tC: {self.C.to('J / (m ** 2 * K)'):~P.2f}\n"
+        l5 = f"\tslices: {self.slices}\n"
+        return l1 + l2 + l3 + l4 + l5
 
     @property
     def U(self) -> Quantity:
@@ -217,14 +227,20 @@ class BuildingComponent(ThermalComponent):
 
         Parameters
         ----------
-        ID: str
+        ID:
             Name to identify the building component.
-        geometry: Geometry
+        geometry:
             Data object that contains the area (A) and thickness (t) of the
             planar building component.
-        material: Material
+        material:
             Data object that contains the material properties of the building
-            component (k, rho and c).
+            component (k, rho, c, R) where k is the thermal conductivity of
+            the material, rho is the mass density, c is the specific heat, and
+            R is the unit thermal resistance (default None).
+
+        Notes
+        -----
+        By default, if k and t are given, R will be ignored.
 
         Returns
         -------
@@ -240,13 +256,16 @@ class BuildingComponent(ThermalComponent):
     
     @staticmethod
     def _calculate_resistance(material: Material, geometry: Geometry) -> Quantity:
-        t = geometry.t
-        k = material.k
-        try:
-            R = t / k
-        except ZeroDivisionError:
-            R = Q_(0.0, 'm ** 2 * K / W')
-        return R
+        if material.R is None:
+            t = geometry.t
+            k = material.k
+            try:
+                R = t / k
+            except ZeroDivisionError:
+                R = Q_(0.0, 'm ** 2 * K / W')
+            return R
+        else:
+            return material.R
     
     @staticmethod
     def _calculate_capacitance(material: Material, geometry: Geometry) -> Quantity:
@@ -317,7 +336,7 @@ class AirSpace(ThermalComponent):
                 ha = cls._determine_ha(geometry, dT, HeatFlowDirection.HORIZONTAL)
         else:
             ha = cls._determine_ha(geometry, dT, heat_flow_direction)
-        hr = cls._determine_hr(Tmn, surface_emissivities)
+        hr = air_space._determine_hr(Tmn, surface_emissivities)
         air_space.R = 1 / (ha + hr)
         return air_space
 
@@ -346,15 +365,20 @@ class AirSpace(ThermalComponent):
                 ha = max(0.09 * (dT ** 0.187) * (t ** -0.44), 0.025 / t)
         return Q_(ha, 'W / (m ** 2 * K)')
 
-    @staticmethod
     def _determine_hr(
+        self,
         Tmn: Quantity,
         surface_emissivities: tuple[Quantity, Quantity]
     ) -> Quantity:
         SIGMA = Q_(5.67e-8, 'W / (m ** 2 * K ** 4)')
         hro = 4 * SIGMA * Tmn.to('K') ** 3
         e1, e2 = surface_emissivities
-        hr = hro / ((1 / e1) + (1 / e2) - 1)
+        if self.geometry.w < 10.0 * self.geometry.t:
+            r = self.geometry.t / self.geometry.w
+            d = 1 + math.sqrt(1 + r ** 2) - r
+            hr = hro / ((1 / e1) + (1 / e2) - 2 + 2 / d)
+        else:
+            hr = hro / ((1 / e1) + (1 / e2) - 1)
         return hr
 
 
@@ -481,8 +505,8 @@ def apply_insulation_correction(
     if isinstance(mechanical_fastening, MechanicalFastening):
         correction_factor += mechanical_fastening.correction_factor
     # calculate delta_U
-    R1 = insulation_layer.R
-    Rtot = building_component.R
+    R1 = insulation_layer.R.to('m ** 2 * K / W')
+    Rtot = building_component.R.to('m ** 2 * K / W')
     delta_U = correction_factor * (R1 / Rtot) ** 2
     return delta_U
 
@@ -589,7 +613,7 @@ class ConstructionAssembly:
             )
             insulation_layer.U += delta_U
             # also update R of construction assembly
-            new_assembly._thermal_component.U += delta_U
+            new_assembly._thermal_component = sum(new_assembly.layers.values())
         return new_assembly
 
     def apply_ventilated_layer_correction(
@@ -628,7 +652,7 @@ class ConstructionAssembly:
             perpendicular to the surface. Can be HORIZONTAL in case of a vertical
             surface, and UPWARDS or DOWNWARDS in case of a horizontal surface.
         Tmn: Quantity
-            External air temperature.
+            Mean thermodynamic temperature of airspace.
         surface_emissivity: Quantity
             The hemispherical emissivity of the surface adjacent to the
             ventilated air layer.
@@ -648,7 +672,7 @@ class ConstructionAssembly:
 
         # add external surface layer for still air to the internal part
         ext_surf_layer = SurfaceLayer.create(
-            ID='',
+            ID='ext_surf_film',
             geometry=Geometry(),
             heat_flow_direction=heat_flow_direction,
             Tmn=Tmn,
@@ -659,11 +683,11 @@ class ConstructionAssembly:
 
         # get total thermal resistance of building component with
         # well-ventilated air layer.
-        R_ve = interior_part.R + ext_surf_layer.R
+        R_ve = (interior_part.R + ext_surf_layer.R).to('m ** 2 * K / W')
 
         # get total thermal resistance of building component with unventilated
         # air layer
-        R_nve = self._thermal_component.R
+        R_nve = self._thermal_component.R.to('m ** 2 * K / W')
 
         A_ve = area_of_openings.to('mm ** 2').m
 
@@ -676,13 +700,14 @@ class ConstructionAssembly:
                 layers=new_layers
             )
             air_layer = new_assembly.layers[ventilated_layer_ID]
-            air_layer.R = Rtot - self.R
+            air_layer.R = self.R - Rtot
+            new_assembly._thermal_component.R = Rtot
             return new_assembly
 
         # well ventilated air layer
         if A_ve >= 1500:
-            new_layers = interior_layers
-            new_layers.append(ext_surf_layer)
+            new_layers = [ext_surf_layer]
+            new_layers.extend(interior_layers)
             new_assembly = ConstructionAssembly.create(
                 ID=self.ID,
                 layers=new_layers
@@ -727,9 +752,10 @@ class ConstructionAssembly:
         self._thermal_component.geometry.A = v
 
     def __str__(self):
-        _str = ''
-        for comp_str in (str(layer) for layer in self.layers.values()):
-            _str += comp_str
+        _str = f'Construction assembly: {self.ID}\n'
+        _str += '-' * len(_str[:-1]) + '\n'
+        for layer_str in (str(layer) for layer in self.layers.values()):
+            _str += layer_str
         return _str
 
     def save(self) -> None:
@@ -747,3 +773,23 @@ class ConstructionAssembly:
         """Returns a list with all the ID's of objects stored in the shelf."""
         with shelve.open(cls.db_path) as shelf:
             return list(shelf.keys())
+
+    def add_layers(self, new_layers: list[tuple[int, ThermalComponent]]) -> None:
+        """
+        Add one or more new layers to the construction assembly.
+
+        Parameters
+        ----------
+        new_layers:
+            List of tuples with 2 elements. The first element is the index
+            of the new layer in the layered composition of the construction
+            assembly. The second element is the new building component or
+            airspace layer.
+            Remember that the layers must be ordered from exterior side towards
+            interior side.
+        """
+        layers = list(self.layers.values())
+        for pos, new_layer in new_layers:
+            layers.insert(pos, new_layer)
+        self.layers = {layer.ID: layer for layer in layers}
+        self._thermal_component += sum(layer for _, layer in new_layers)

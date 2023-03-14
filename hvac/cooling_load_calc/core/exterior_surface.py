@@ -12,7 +12,7 @@ Q_ = Quantity
 
 class ExteriorSurface(Surface):
     """
-    For internal use only. It is an attribute of `ExteriorBuildingElement`
+    Intended for internal use only. It is an attribute of `ExteriorBuildingElement`
     and `Window`. Used for:
     - calculating the daily hourly values of global solar irradiance incident on
     the surface using the `AnisotropicSkyModel`
@@ -110,7 +110,6 @@ class ExteriorSurface(Surface):
         # (float) and returns the diffuse irradiance on the surface in W/m²
         # (float) at that hour of the day.
         self._I_dif_fun = self._interpolate_diffuse_irradiance()
-
         self._I_glo_fun = self._interpolate_global_irradiance()
 
         if None not in [surface_resistance, surface_absorptance]:
@@ -123,13 +122,13 @@ class ExteriorSurface(Surface):
                 R_surf=surface_resistance,
                 a_surf=surface_absorptance
             )
-            # Create a function that takes the hour of the day in decimal hours
-            # (float) and returns the sol-air temperature in degC (float) at that
-            # hour of the day.
         else:
             self.T_sol_profile = self._get_sol_air_temperature_profile(
                 surface_color=surface_color
             )
+        # Create a function that takes the hour of the day in decimal hours
+        # (float) and returns the sol-air temperature in degC (float) at that
+        # hour of the day.
         self._T_sol_fun = self._interpolate_sol_air_temperature()
 
     def _get_sol_air_temperature_profile(

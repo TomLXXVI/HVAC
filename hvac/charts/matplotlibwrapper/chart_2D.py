@@ -32,10 +32,10 @@ class Legend:
 class Chart(ABC):
 
     def __init__(
-            self,
-            size: Optional[Tuple[float, float]] = None,
-            dpi: Optional[int] = None,
-            constructs: Optional[Tuple[Figure, Axes]] = None
+        self,
+        size: Optional[Tuple[float, float]] = None,
+        dpi: Optional[int] = None,
+        constructs: Optional[Tuple[Figure, Axes]] = None
     ):
         if constructs is not None:
             self.figure = constructs[0]
@@ -48,6 +48,8 @@ class Chart(ABC):
         self.y2: Optional[Y2Axis] = None
         self.datasets: Dict[str, Any] = {}
         self.legend: Optional[Legend] = None
+        self._y1_img = None
+        self._y2_img = None
 
     def add_x2_axis(self):
         """Add a secondary x-axis below the main x-axis."""
@@ -58,13 +60,13 @@ class Chart(ABC):
         self.y2 = Y2Axis(self.axes)
 
     def add_xy_data(
-            self,
-            label: str,
-            x1_values: Optional[Union[Iterable, np.ndarray]] = None,
-            y1_values: Optional[Union[Iterable, np.ndarray]] = None,
-            x2_values: Optional[Union[Iterable, np.ndarray]] = None,
-            y2_values: Optional[Union[Iterable, np.ndarray]] = None,
-            style_props: Optional[Dict[str, Any]] = None
+        self,
+        label: str,
+        x1_values: Optional[Union[Iterable, np.ndarray]] = None,
+        y1_values: Optional[Union[Iterable, np.ndarray]] = None,
+        x2_values: Optional[Union[Iterable, np.ndarray]] = None,
+        y2_values: Optional[Union[Iterable, np.ndarray]] = None,
+        style_props: Optional[Dict[str, Any]] = None
     ):
         """
         Add x- and y- data to chart for drawing.
@@ -86,10 +88,10 @@ class Chart(ABC):
         pass
 
     def add_legend(
-            self,
-            anchor: str = 'upper center',
-            position: Tuple[float, float] = (0.5, -0.1),
-            columns: int = 2
+        self,
+        anchor: str = 'upper center',
+        position: Tuple[float, float] = (0.5, -0.1),
+        columns: int = 2
     ):
         """
         Add legend to chart.
@@ -131,6 +133,14 @@ class Chart(ABC):
         self.figure.savefig(path, bbox_inches='tight')
         plt.close(self.figure)
 
+    @property
+    def y1_img(self):
+        return self._y1_img
+
+    @property
+    def y2_img(self):
+        return self._y2_img
+
 
 class LineChart(Chart):
 
@@ -138,14 +148,14 @@ class LineChart(Chart):
         for label, dataset in self.datasets.items():
             if dataset['x1_values'] is not None:
                 if dataset['y1_values'] is not None:
-                    self.y1.axes.plot(
+                    self._y1_img = self.y1.axes.plot(
                         dataset['x1_values'],
                         dataset['y1_values'],
                         label=label,
                         **dataset['style_props']
                     )
                 if dataset['y2_values'] is not None:
-                    self.y2.axes.plot(
+                    self._y2_img = self.y2.axes.plot(
                         dataset['x1_values'],
                         dataset['y2_values'],
                         label=label,
@@ -159,14 +169,14 @@ class FilledLineChart(Chart):
         for label, dataset in self.datasets.items():
             if dataset['x1_values']:
                 if dataset['y1_values']:
-                    self.y1.axes.fill_between(
+                    self._y1_img = self.y1.axes.fill_between(
                         dataset['x1_values'],
                         dataset['y1_values'],
                         label,
                         **dataset['style_props']
                     )
                 if dataset['y2_values']:
-                    self.y2.axes.fill_between(
+                    self._y2_img = self.y2.axes.fill_between(
                         dataset['x1_values'],
                         dataset['y2_values'],
                         label=label,

@@ -484,13 +484,15 @@ class ThermalNetwork:
 
     @property
     def R_ext(self) -> Quantity:
-        """Get the thermal resistance at the exterior surface."""
+        """Get the thermal resistance between the outdoor environment and
+        exterior surface node."""
         R_ext = self.nodes[0].R[0]
         return Q_(R_ext, 'K / W')
 
     @property
     def R_int(self) -> Quantity:
-        """Get the thermal resistance at the interior surface."""
+        """Get the thermal resistance between the interior surface node and
+        the indoor environment."""
         R_int = self.nodes[-1].R[-1]
         return Q_(R_int, 'K / W')
 

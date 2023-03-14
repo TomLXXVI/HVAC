@@ -144,7 +144,7 @@ class ClimateData:
     def __init__(self):
         self.design_day: Optional[Date] = None
         self.location: Optional[Location] = None
-        self.Tdb_design: Optional[Quantity] = None
+        self.Tdb_avg: Optional[Quantity] = None
         self.Tdb_range: Optional[Quantity] = None
         self.Twb_mc: Optional[Quantity] = None
         self.tau_beam: Optional[float] = None
@@ -159,7 +159,7 @@ class ClimateData:
         cls,
         design_day: Date,
         location: Location,
-        Tdb_des: Quantity,
+        Tdb_avg: Quantity,
         Tdb_range: Quantity,
         Twb_mc: Quantity,
         tau_beam: float,
@@ -175,7 +175,7 @@ class ClimateData:
             element is to be determined.
         location :
             The geographic location for which the climate data applies to.
-        Tdb_des:
+        Tdb_avg:
             Outside air dry-bulb design temperature.
         Tdb_range:
             Outside air dry-bulb temperature range.
@@ -194,19 +194,19 @@ class ClimateData:
         obj = cls()
         obj.design_day = design_day
         obj.location = location
-        obj.Tdb_design = Tdb_des
+        obj.Tdb_avg = Tdb_avg
         obj.Tdb_range = Tdb_range
         obj.Twb_mc = Twb_mc
         obj.tau_beam = tau_beam
         obj.tau_dif = tau_dif
-        outdoor_air = HumidAir(Tdb=obj.Tdb_design, Twb=obj.Twb_mc)
+        outdoor_air = HumidAir(Tdb=obj.Tdb_avg, Twb=obj.Twb_mc)
         obj.rho = outdoor_air.rho
         obj.cp = outdoor_air.cp
         # to get hourly db- and wb temperature profile on design day
         obj._design_day_temp_profile = _DesignDayTemperatureProfile(
             location=obj.location,
             date=obj.design_day,
-            Tdb_max=obj.Tdb_design,
+            Tdb_max=obj.Tdb_avg,
             Tdb_range=obj.Tdb_range,
             Twb_mc=obj.Twb_mc
         )
@@ -222,7 +222,7 @@ class ClimateData:
         return {
             'design_day': self.design_day,
             'location': self.location,
-            'T_db': self.Tdb_design,
+            'T_db': self.Tdb_avg,
             'db_range': self.Tdb_range,
             'T_wb_mc': self.Twb_mc,
             'tau_beam': self.tau_beam,
