@@ -28,13 +28,22 @@ Q_ = Quantity
 # ROOF CONSTRUCTION ASSEMBLY WTCB F1
 # ------------------------------------------------------------------------------
 
-def create_ca_roof_wtcbF1(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_roof_wtcbF1(
+    t_ins: Quantity,
+    heat_flow_direction: HeatFlowDirection = HeatFlowDirection.UPWARDS,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    T_asp: Quantity = Q_(10, 'degC'),
+    dT_asp: Quantity = Q_(5, 'K'),
+    v_wind: Quantity = Q_(4, 'm / s')
+) -> ConstructionAssembly:
     ext_surf_film = SurfaceLayer.create(
         ID='ext_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(30, 'degC'),
-        internal_surface=False
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_ext,
+        internal_surface=False,
+        wind_speed=v_wind
     )
     roof_tiles = BuildingComponent.create(
         ID='roof_tiles',
@@ -44,9 +53,9 @@ def create_ca_roof_wtcbF1(t_ins: Quantity) -> ConstructionAssembly:
     air_space = AirSpace.create(
         ID='air_space',
         geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=Q_(5.6, 'K'),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(32.2, 'degC'),
+        dT=dT_asp,
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_asp,
         surface_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
         inclination_angle=Q_(45.0, 'deg')
     )
@@ -70,8 +79,8 @@ def create_ca_roof_wtcbF1(t_ins: Quantity) -> ConstructionAssembly:
     int_surf_film = SurfaceLayer.create(
         ID='int_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(24.0, 'degC')
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_int
     )
     roof = ConstructionAssembly.create(
         ID=f'roof_wtcbF1 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -87,8 +96,8 @@ def create_ca_roof_wtcbF1(t_ins: Quantity) -> ConstructionAssembly:
     roof = roof.apply_ventilated_layer_correction(
         ventilated_layer_ID=air_space.ID,
         area_of_openings=Q_(1499, 'mm ** 2'),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(30, 'degC')
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_asp
     )
     roof = roof.apply_insulation_correction(
         insulation_layer_ID=insulation.ID,
@@ -105,13 +114,22 @@ def create_ca_roof_wtcbF1(t_ins: Quantity) -> ConstructionAssembly:
 # ROOF CONSTRUCTION ASSEMBLY WTCB F2
 # ------------------------------------------------------------------------------
 
-def create_ca_roof_wtcbF2(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_roof_wtcbF2(
+    t_ins: Quantity,
+    heat_flow_direction: HeatFlowDirection,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    T_asp: Quantity = Q_(10, 'degC'),
+    dT_asp: Quantity = Q_(5, 'K'),
+    v_wind: Quantity = Q_(4, 'm / s')
+) -> ConstructionAssembly:
     ext_surf_film = SurfaceLayer.create(
         ID='ext_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(30, 'degC'),
-        internal_surface=False
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_ext,
+        internal_surface=False,
+        wind_speed=v_wind
     )
     roof_tiles = BuildingComponent.create(
         ID='roof_tiles',
@@ -121,9 +139,9 @@ def create_ca_roof_wtcbF2(t_ins: Quantity) -> ConstructionAssembly:
     air_space = AirSpace.create(
         ID='air_space',
         geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=Q_(5.6, 'K'),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(32.2, 'degC'),
+        dT=dT_asp,
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_asp,
         surface_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
         inclination_angle=Q_(45.0, 'deg')
     )
@@ -147,8 +165,8 @@ def create_ca_roof_wtcbF2(t_ins: Quantity) -> ConstructionAssembly:
     int_surf_film = SurfaceLayer.create(
         ID='int_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(24.0, 'degC')
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_int
     )
     roof = ConstructionAssembly.create(
         ID=f'roof_wtcbF2 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -164,8 +182,8 @@ def create_ca_roof_wtcbF2(t_ins: Quantity) -> ConstructionAssembly:
     roof = roof.apply_ventilated_layer_correction(
         ventilated_layer_ID=air_space.ID,
         area_of_openings=Q_(1499, 'mm ** 2'),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(30, 'degC')
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_asp
     )
     roof = roof.apply_insulation_correction(
         insulation_layer_ID=insulation.ID,
@@ -182,13 +200,22 @@ def create_ca_roof_wtcbF2(t_ins: Quantity) -> ConstructionAssembly:
 # ROOF CONSTRUCTION ASSEMBLY WTCB F3
 # ------------------------------------------------------------------------------
 
-def create_ca_roof_wtcbF3(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_roof_wtcbF3(
+    t_ins: Quantity,
+    heat_flow_direction: HeatFlowDirection,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    T_asp: Quantity = Q_(10, 'degC'),
+    dT_asp: Quantity = Q_(5, 'K'),
+    v_wind: Quantity = Q_(4, 'm / s')
+) -> ConstructionAssembly:
     ext_surf_film = SurfaceLayer.create(
         ID='ext_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(30, 'degC'),
-        internal_surface=False
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_ext,
+        internal_surface=False,
+        wind_speed=v_wind
     )
     roof_tiles = BuildingComponent.create(
         ID='roof_tiles',
@@ -198,9 +225,9 @@ def create_ca_roof_wtcbF3(t_ins: Quantity) -> ConstructionAssembly:
     air_space = AirSpace.create(
         ID='air_space',
         geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=Q_(5.6, 'K'),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(32.2, 'degC'),
+        dT=dT_asp,
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_asp,
         surface_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
         inclination_angle=Q_(45.0, 'deg')
     )
@@ -224,8 +251,8 @@ def create_ca_roof_wtcbF3(t_ins: Quantity) -> ConstructionAssembly:
     int_surf_film = SurfaceLayer.create(
         ID='int_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(24.0, 'degC')
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_int
     )
     roof = ConstructionAssembly.create(
         ID=f'roof_wtcbF3 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -241,8 +268,8 @@ def create_ca_roof_wtcbF3(t_ins: Quantity) -> ConstructionAssembly:
     roof = roof.apply_ventilated_layer_correction(
         ventilated_layer_ID=air_space.ID,
         area_of_openings=Q_(501, 'mm ** 2'),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(30, 'degC')
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_asp
     )
     roof = roof.apply_insulation_correction(
         insulation_layer_ID=insulation.ID,
@@ -259,13 +286,22 @@ def create_ca_roof_wtcbF3(t_ins: Quantity) -> ConstructionAssembly:
 # ROOF CONSTRUCTION ASSEMBLY WTCB F4
 # ------------------------------------------------------------------------------
 
-def create_ca_roof_wtcbF4(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_roof_wtcbF4(
+    t_ins: Quantity,
+    heat_flow_direction: HeatFlowDirection,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    T_asp: Quantity = Q_(10, 'degC'),
+    dT_asp: Quantity = Q_(5, 'K'),
+    v_wind: Quantity = Q_(4, 'm / s')
+) -> ConstructionAssembly:
     ext_surf_film = SurfaceLayer.create(
         ID='ext_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(30, 'degC'),
-        internal_surface=False
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_ext,
+        internal_surface=False,
+        wind_speed=v_wind
     )
     roofing = BuildingComponent.create(
         ID='roofing',
@@ -285,9 +321,9 @@ def create_ca_roof_wtcbF4(t_ins: Quantity) -> ConstructionAssembly:
     airspace_ = AirSpace.create(
         ID='airspace_',
         geometry=Geometry(t=Q_(15, 'cm'), w=Q_(50, 'cm'), A=Q_(0.89, 'm ** 2')),
-        dT=Q_(5.6, 'K'),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(24.0, 'degC')
+        dT=dT_asp,
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_asp
     )
     # airspace with width less than 10 times the thickness = air void with
     # thermal resistance calculated acc. to NBN EN ISO 6946, annex D.4.
@@ -307,8 +343,8 @@ def create_ca_roof_wtcbF4(t_ins: Quantity) -> ConstructionAssembly:
     int_surf_film = SurfaceLayer.create(
         ID='int_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(24.0, 'degC')
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_int
     )
     roof = ConstructionAssembly.create(
         ID=f'roof_wtcbF4 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -325,8 +361,8 @@ def create_ca_roof_wtcbF4(t_ins: Quantity) -> ConstructionAssembly:
     roof = roof.apply_ventilated_layer_correction(
         ventilated_layer_ID=airspace.ID,
         area_of_openings=Q_(501, 'mm ** 2'),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(24, 'degC')
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_asp
     )
     roof = roof.apply_insulation_correction(
         insulation_layer_ID=insulation.ID,
@@ -343,13 +379,20 @@ def create_ca_roof_wtcbF4(t_ins: Quantity) -> ConstructionAssembly:
 # ROOF CONSTRUCTION ASSEMBLY WTCB F5
 # ------------------------------------------------------------------------------
 
-def create_ca_roof_wtcbF5(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_roof_wtcbF5(
+    t_ins: Quantity,
+    heat_flow_direction: HeatFlowDirection,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    v_wind: Quantity = Q_(4, 'm / s')
+) -> ConstructionAssembly:
     ext_surf_film = SurfaceLayer.create(
         ID='ext_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(30, 'degC'),
-        internal_surface=False
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_ext,
+        internal_surface=False,
+        wind_speed=v_wind
     )
     roofing = BuildingComponent.create(
         ID='roofing',
@@ -379,8 +422,8 @@ def create_ca_roof_wtcbF5(t_ins: Quantity) -> ConstructionAssembly:
     int_surf_film = SurfaceLayer.create(
         ID='int_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(24.0, 'degC')
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_int
     )
     roof = ConstructionAssembly.create(
         ID=f'roof_wtcbF5 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -410,12 +453,17 @@ def create_ca_roof_wtcbF5(t_ins: Quantity) -> ConstructionAssembly:
 # CEILING CONSTRUCTION ASSEMBLY WTCB F6
 # ------------------------------------------------------------------------------
 
-def create_ca_ceiling_wtcbF6(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ceiling_wtcbF6(
+    t_ins: Quantity,
+    heat_flow_direction: HeatFlowDirection,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC')
+) -> ConstructionAssembly:
     adj_surf_film = SurfaceLayer.create(
         ID='adj_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(24, 'degC'),
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_ext
     )
     insulation_ = BuildingComponent.create(
         ID='insulation_',
@@ -437,8 +485,8 @@ def create_ca_ceiling_wtcbF6(t_ins: Quantity) -> ConstructionAssembly:
     int_surf_film = SurfaceLayer.create(
         ID='int_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(24.0, 'degC')
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_int
     )
     ceiling = ConstructionAssembly.create(
         ID=f'ceiling_wtcbF6 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -461,12 +509,17 @@ def create_ca_ceiling_wtcbF6(t_ins: Quantity) -> ConstructionAssembly:
 # CEILING CONSTRUCTION ASSEMBLY WTCB F7
 # ------------------------------------------------------------------------------
 
-def create_ca_ceiling_wtcbF7(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ceiling_wtcbF7(
+    t_ins: Quantity,
+    heat_flow_direction: HeatFlowDirection,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC')
+) -> ConstructionAssembly:
     adj_surf_film = SurfaceLayer.create(
         ID='adj_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(24, 'degC'),
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_ext
     )
     insulation_ = BuildingComponent.create(
         ID='insulation_',
@@ -488,8 +541,8 @@ def create_ca_ceiling_wtcbF7(t_ins: Quantity) -> ConstructionAssembly:
     int_surf_film = SurfaceLayer.create(
         ID='int_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(24.0, 'degC')
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_int
     )
     ceiling = ConstructionAssembly.create(
         ID=f'ceiling_wtcbF7 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -512,12 +565,19 @@ def create_ca_ceiling_wtcbF7(t_ins: Quantity) -> ConstructionAssembly:
 # CEILING CONSTRUCTION ASSEMBLY WTCB F8
 # ------------------------------------------------------------------------------
 
-def create_ca_ceiling_wtcbF8(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ceiling_wtcbF8(
+    t_ins: Quantity,
+    heat_flow_direction: HeatFlowDirection,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    T_asp: Quantity = Q_(10, 'degC'),
+    dT_asp: Quantity = Q_(5, 'K')
+) -> ConstructionAssembly:
     adj_surf_film = SurfaceLayer.create(
         ID='adj_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(24, 'degC'),
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_ext
     )
     insulation_ = BuildingComponent.create(
         ID='insulation_',
@@ -534,9 +594,9 @@ def create_ca_ceiling_wtcbF8(t_ins: Quantity) -> ConstructionAssembly:
     airspace = AirSpace.create(
         ID='airspace',
         geometry=Geometry(t=Q_(5, 'cm')),
-        dT=Q_(5.6, 'K'),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(24.0, 'degC')
+        dT=dT_asp,
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_asp
     )
     gypsum_board = BuildingComponent.create(
         ID='gypsum_board',
@@ -546,8 +606,8 @@ def create_ca_ceiling_wtcbF8(t_ins: Quantity) -> ConstructionAssembly:
     int_surf_film = SurfaceLayer.create(
         ID='int_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(24.0, 'degC')
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_int
     )
     ceiling = ConstructionAssembly.create(
         ID=f'ceiling_wtcbF8 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -571,12 +631,19 @@ def create_ca_ceiling_wtcbF8(t_ins: Quantity) -> ConstructionAssembly:
 # CEILING CONSTRUCTION ASSEMBLY WTCB F9
 # ------------------------------------------------------------------------------
 
-def create_ca_ceiling_wtcbF9(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ceiling_wtcbF9(
+    t_ins: Quantity,
+    heat_flow_direction: HeatFlowDirection,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    T_asp: Quantity = Q_(10, 'degC'),
+    dT_asp: Quantity = Q_(5, 'K')
+) -> ConstructionAssembly:
     adj_surf_film = SurfaceLayer.create(
         ID='adj_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(24, 'degC'),
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_ext
     )
     plywood_board = BuildingComponent.create(
         ID='plywood_board',
@@ -586,9 +653,9 @@ def create_ca_ceiling_wtcbF9(t_ins: Quantity) -> ConstructionAssembly:
     airspace_ = AirSpace.create(
         ID='airspace_',
         geometry=Geometry(t=Q_(5, 'cm'), w=Q_(50, 'cm'), A=Q_(0.89, 'm ** 2')),
-        dT=Q_(5.6, 'K'),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(24.0, 'degC')
+        dT=dT_asp,
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_asp
     )
     insulation_ = BuildingComponent.create(
         ID='insulation_',
@@ -612,8 +679,8 @@ def create_ca_ceiling_wtcbF9(t_ins: Quantity) -> ConstructionAssembly:
     int_surf_film = SurfaceLayer.create(
         ID='int_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(24.0, 'degC')
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_int
     )
     ceiling = ConstructionAssembly.create(
         ID=f'ceiling_wtcbF9 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -638,12 +705,19 @@ def create_ca_ceiling_wtcbF9(t_ins: Quantity) -> ConstructionAssembly:
 # CEILING CONSTRUCTION ASSEMBLY WTCB F10
 # ------------------------------------------------------------------------------
 
-def create_ca_ceiling_wtcbF10(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ceiling_wtcbF10(
+    t_ins: Quantity,
+    heat_flow_direction: HeatFlowDirection,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    T_asp: Quantity = Q_(10, 'degC'),
+    dT_asp: Quantity = Q_(5, 'K')
+) -> ConstructionAssembly:
     adj_surf_film = SurfaceLayer.create(
         ID='adj_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(24, 'degC'),
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_ext
     )
     plywood_board = BuildingComponent.create(
         ID='plywood_board',
@@ -653,9 +727,9 @@ def create_ca_ceiling_wtcbF10(t_ins: Quantity) -> ConstructionAssembly:
     airspace_ = AirSpace.create(
         ID='airspace_',
         geometry=Geometry(t=Q_(5, 'cm'), w=Q_(50, 'cm'), A=Q_(0.89, 'm ** 2')),
-        dT=Q_(5.6, 'K'),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(24.0, 'degC')
+        dT=dT_asp,
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_asp
     )
     insulation_ = BuildingComponent.create(
         ID='insulation_',
@@ -674,9 +748,9 @@ def create_ca_ceiling_wtcbF10(t_ins: Quantity) -> ConstructionAssembly:
     airspace_02 = AirSpace.create(
         ID='airspace_02',
         geometry=Geometry(t=Q_(5, 'cm')),
-        dT=Q_(5.6, 'K'),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(24.0, 'degC')
+        dT=dT_asp,
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_asp
     )
     gypsum_board = BuildingComponent.create(
         ID='gypsum_board',
@@ -686,8 +760,8 @@ def create_ca_ceiling_wtcbF10(t_ins: Quantity) -> ConstructionAssembly:
     int_surf_film = SurfaceLayer.create(
         ID='int_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(24.0, 'degC')
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_int
     )
     ceiling = ConstructionAssembly.create(
         ID=f'ceiling_wtcbF10 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -713,12 +787,17 @@ def create_ca_ceiling_wtcbF10(t_ins: Quantity) -> ConstructionAssembly:
 # CEILING CONSTRUCTION ASSEMBLY WTCB F11
 # ------------------------------------------------------------------------------
 
-def create_ca_ceiling_wtcbF11(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ceiling_wtcbF11(
+    t_ins: Quantity,
+    heat_flow_direction: HeatFlowDirection,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC')
+) -> ConstructionAssembly:
     adj_surf_film = SurfaceLayer.create(
         ID='adj_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(24, 'degC'),
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_ext
     )
     insulation = BuildingComponent.create(
         ID='insulation',
@@ -738,8 +817,8 @@ def create_ca_ceiling_wtcbF11(t_ins: Quantity) -> ConstructionAssembly:
     int_surf_film = SurfaceLayer.create(
         ID='int_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(24.0, 'degC')
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_int
     )
     ceiling = ConstructionAssembly.create(
         ID=f'ceiling_wtcbF11 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -763,12 +842,17 @@ def create_ca_ceiling_wtcbF11(t_ins: Quantity) -> ConstructionAssembly:
 # CEILING CONSTRUCTION ASSEMBLY WTCB F12
 # ------------------------------------------------------------------------------
 
-def create_ca_ceiling_wtcbF12(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ceiling_wtcbF12(
+    t_ins: Quantity,
+    heat_flow_direction: HeatFlowDirection,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC')
+) -> ConstructionAssembly:
     adj_surf_film = SurfaceLayer.create(
         ID='adj_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(24, 'degC'),
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_ext
     )
     insulation = BuildingComponent.create(
         ID='insulation',
@@ -788,8 +872,8 @@ def create_ca_ceiling_wtcbF12(t_ins: Quantity) -> ConstructionAssembly:
     int_surf_film = SurfaceLayer.create(
         ID='int_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(24.0, 'degC')
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_int
     )
     ceiling = ConstructionAssembly.create(
         ID=f'ceiling_wtcbF12 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -813,12 +897,17 @@ def create_ca_ceiling_wtcbF12(t_ins: Quantity) -> ConstructionAssembly:
 # CEILING CONSTRUCTION ASSEMBLY WTCB F13
 # ------------------------------------------------------------------------------
 
-def create_ca_ceiling_wtcbF13(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ceiling_wtcbF13(
+    t_ins: Quantity,
+    heat_flow_direction: HeatFlowDirection,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+) -> ConstructionAssembly:
     adj_surf_film = SurfaceLayer.create(
         ID='adj_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(24, 'degC'),
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_ext
     )
     screed_concrete = BuildingComponent.create(
         ID='screed_concrete',
@@ -843,8 +932,8 @@ def create_ca_ceiling_wtcbF13(t_ins: Quantity) -> ConstructionAssembly:
     int_surf_film = SurfaceLayer.create(
         ID='int_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(24.0, 'degC')
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_int
     )
     ceiling = ConstructionAssembly.create(
         ID=f'ceiling_wtcbF13 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -869,12 +958,17 @@ def create_ca_ceiling_wtcbF13(t_ins: Quantity) -> ConstructionAssembly:
 # CEILING CONSTRUCTION ASSEMBLY WTCB F14
 # ------------------------------------------------------------------------------
 
-def create_ca_ceiling_wtcbF14(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ceiling_wtcbF14(
+    t_ins: Quantity,
+    heat_flow_direction: HeatFlowDirection,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC')
+) -> ConstructionAssembly:
     adj_surf_film = SurfaceLayer.create(
         ID='adj_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(24, 'degC'),
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_ext
     )
     screed_concrete = BuildingComponent.create(
         ID='screed_concrete',
@@ -899,8 +993,8 @@ def create_ca_ceiling_wtcbF14(t_ins: Quantity) -> ConstructionAssembly:
     int_surf_film = SurfaceLayer.create(
         ID='int_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(24.0, 'degC')
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_int
     )
     ceiling = ConstructionAssembly.create(
         ID=f'ceiling_wtcbF14 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -925,21 +1019,22 @@ def create_ca_ceiling_wtcbF14(t_ins: Quantity) -> ConstructionAssembly:
 
 def main():
     t_ins = Q_(12, 'cm')
+    hfd = HeatFlowDirection.DOWNWARDS
 
-    ca_roof_wtcbF1 = create_ca_roof_wtcbF1(t_ins)
-    ca_roof_wtcbF2 = create_ca_roof_wtcbF2(t_ins)
-    ca_roof_wtcbF3 = create_ca_roof_wtcbF3(t_ins)
-    ca_roof_wtcbF4 = create_ca_roof_wtcbF4(t_ins)
-    ca_roof_wtcbF5 = create_ca_roof_wtcbF5(t_ins)
-    ca_ceiling_wtcbF6 = create_ca_ceiling_wtcbF6(t_ins)
-    ca_ceiling_wtcbF7 = create_ca_ceiling_wtcbF7(t_ins)
-    ca_ceiling_wtcbF8 = create_ca_ceiling_wtcbF8(t_ins)
-    ca_ceiling_wtcbF9 = create_ca_ceiling_wtcbF9(t_ins)
-    ca_ceiling_wtcbF10 = create_ca_ceiling_wtcbF10(t_ins)
-    ca_ceiling_wtcbF11 = create_ca_ceiling_wtcbF11(t_ins)
-    ca_ceiling_wtcbF12 = create_ca_ceiling_wtcbF12(t_ins)
-    ca_ceiling_wtcbF13 = create_ca_ceiling_wtcbF13(t_ins)
-    ca_ceiling_wtcbF14 = create_ca_ceiling_wtcbF14(t_ins)
+    ca_roof_wtcbF1 = create_ca_roof_wtcbF1(t_ins, hfd)
+    ca_roof_wtcbF2 = create_ca_roof_wtcbF2(t_ins, hfd)
+    ca_roof_wtcbF3 = create_ca_roof_wtcbF3(t_ins, hfd)
+    ca_roof_wtcbF4 = create_ca_roof_wtcbF4(t_ins, hfd)
+    ca_roof_wtcbF5 = create_ca_roof_wtcbF5(t_ins, hfd)
+    ca_ceiling_wtcbF6 = create_ca_ceiling_wtcbF6(t_ins, hfd)
+    ca_ceiling_wtcbF7 = create_ca_ceiling_wtcbF7(t_ins, hfd)
+    ca_ceiling_wtcbF8 = create_ca_ceiling_wtcbF8(t_ins, hfd)
+    ca_ceiling_wtcbF9 = create_ca_ceiling_wtcbF9(t_ins, hfd)
+    ca_ceiling_wtcbF10 = create_ca_ceiling_wtcbF10(t_ins, hfd)
+    ca_ceiling_wtcbF11 = create_ca_ceiling_wtcbF11(t_ins, hfd)
+    ca_ceiling_wtcbF12 = create_ca_ceiling_wtcbF12(t_ins, hfd)
+    ca_ceiling_wtcbF13 = create_ca_ceiling_wtcbF13(t_ins, hfd)
+    ca_ceiling_wtcbF14 = create_ca_ceiling_wtcbF14(t_ins, hfd)
 
     ConstructionAssembliesShelf.add(
         ca_roof_wtcbF1,

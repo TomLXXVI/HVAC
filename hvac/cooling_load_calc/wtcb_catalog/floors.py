@@ -27,13 +27,20 @@ Q_ = Quantity
 # FLOOR CONSTRUCTION ASSEMBLY WTCB F1
 # ------------------------------------------------------------------------------
 
-def create_ca_floor_wtcbF1(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_floor_wtcbF1(
+    t_ins: Quantity,
+    heat_flow_direction: HeatFlowDirection,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    v_wind: Quantity = Q_(4, 'm / s')
+) -> ConstructionAssembly:
     ext_surf_film = SurfaceLayer.create(
         ID='ext_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.UPWARDS,
-        Tmn=Q_(30, 'degC'),
-        internal_surface=False
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_ext,
+        internal_surface=False,
+        wind_speed=v_wind
     )
     floor_slabs = BuildingComponent.create(
         ID='floor_slabs',
@@ -53,8 +60,8 @@ def create_ca_floor_wtcbF1(t_ins: Quantity) -> ConstructionAssembly:
     int_surf_film = SurfaceLayer.create(
         ID='int_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.UPWARDS,
-        Tmn=Q_(24.0, 'degC')
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_int
     )
     floor = ConstructionAssembly.create(
         ID=f'floor_wtcbF1 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -81,13 +88,17 @@ def create_ca_floor_wtcbF1(t_ins: Quantity) -> ConstructionAssembly:
 # FLOOR CONSTRUCTION ASSEMBLY WTCB F2
 # ------------------------------------------------------------------------------
 
-def create_ca_floor_wtcbF2(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_floor_wtcbF2(
+    t_ins: Quantity,
+    heat_flow_direction: HeatFlowDirection,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC')
+) -> ConstructionAssembly:
     adj_surf_film = SurfaceLayer.create(
         ID='adj_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.UPWARDS,
-        Tmn=Q_(24, 'degC'),
-        internal_surface=False
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_ext
     )
     concrete_slab = BuildingComponent.create(
         ID='concrete_slab',
@@ -107,8 +118,8 @@ def create_ca_floor_wtcbF2(t_ins: Quantity) -> ConstructionAssembly:
     int_surf_film = SurfaceLayer.create(
         ID='int_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.UPWARDS,
-        Tmn=Q_(24.0, 'degC')
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_int
     )
     floor = ConstructionAssembly.create(
         ID=f'floor_wtcbF2 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -135,13 +146,17 @@ def create_ca_floor_wtcbF2(t_ins: Quantity) -> ConstructionAssembly:
 # FLOOR CONSTRUCTION ASSEMBLY WTCB F3
 # ------------------------------------------------------------------------------
 
-def create_ca_floor_wtcbF3(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_floor_wtcbF3(
+    t_ins: Quantity,
+    heat_flow_direction: HeatFlowDirection,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+) -> ConstructionAssembly:
     adj_surf_film = SurfaceLayer.create(
         ID='adj_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.UPWARDS,
-        Tmn=Q_(24, 'degC'),
-        internal_surface=False
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_ext,
     )
     floor_slab = BuildingComponent.create(
         ID='floor_slab',
@@ -161,8 +176,8 @@ def create_ca_floor_wtcbF3(t_ins: Quantity) -> ConstructionAssembly:
     int_surf_film = SurfaceLayer.create(
         ID='int_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.UPWARDS,
-        Tmn=Q_(24.0, 'degC')
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_int
     )
     floor = ConstructionAssembly.create(
         ID=f'floor_wtcbF3 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -189,7 +204,11 @@ def create_ca_floor_wtcbF3(t_ins: Quantity) -> ConstructionAssembly:
 # FLOOR CONSTRUCTION ASSEMBLY WTCB F4
 # ------------------------------------------------------------------------------
 
-def create_ca_floor_wtcbF4(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_floor_wtcbF4(
+    t_ins: Quantity,
+    heat_flow_direction: HeatFlowDirection,
+    T_int: Quantity = Q_(20.0, 'degC')
+) -> ConstructionAssembly:
     floor_slab = BuildingComponent.create(
         ID='floor_slab',
         geometry=Geometry(t=Q_(12, 'cm')),
@@ -208,8 +227,8 @@ def create_ca_floor_wtcbF4(t_ins: Quantity) -> ConstructionAssembly:
     int_surf_film = SurfaceLayer.create(
         ID='int_surf_film',
         geometry=Geometry(),
-        heat_flow_direction=HeatFlowDirection.DOWNWARDS,
-        Tmn=Q_(24.0, 'degC')
+        heat_flow_direction=heat_flow_direction,
+        Tmn=T_int
     )
     floor = ConstructionAssembly.create(
         ID=f'floor_wtcbF4 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -232,11 +251,12 @@ def create_ca_floor_wtcbF4(t_ins: Quantity) -> ConstructionAssembly:
 
 def main():
     t_ins = Q_(12, 'cm')
+    hfd = HeatFlowDirection.UPWARDS
 
-    ca_floor_wtcbF1 = create_ca_floor_wtcbF1(t_ins)
-    ca_floor_wtcbF2 = create_ca_floor_wtcbF2(t_ins)
-    ca_floor_wtcbF3 = create_ca_floor_wtcbF3(t_ins)
-    ca_floor_wtcbF4 = create_ca_floor_wtcbF4(t_ins)
+    ca_floor_wtcbF1 = create_ca_floor_wtcbF1(t_ins, hfd)
+    ca_floor_wtcbF2 = create_ca_floor_wtcbF2(t_ins, hfd)
+    ca_floor_wtcbF3 = create_ca_floor_wtcbF3(t_ins, hfd)
+    ca_floor_wtcbF4 = create_ca_floor_wtcbF4(t_ins, hfd)
 
     ConstructionAssembliesShelf.add(
         ca_floor_wtcbF1,

@@ -30,13 +30,21 @@ Q_ = Quantity
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F1
 # ------------------------------------------------------------------------------
 
-def create_ca_ext_wall_wtcbF1(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ext_wall_wtcbF1(
+    t_ins: Quantity,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    T_asp: Quantity = Q_(10, 'degC'),
+    dT_asp: Quantity = Q_(5, 'K'),
+    v_wind: Quantity = Q_(4, 'm / s')
+) -> ConstructionAssembly:
     ext_surf_film = SurfaceLayer.create(
         ID='ext_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC'),
-        internal_surface=False
+        Tmn=T_ext,
+        internal_surface=False,
+        wind_speed=v_wind
     )
     outer_leaf = BuildingComponent.create(
         ID='outer_leaf',
@@ -46,9 +54,9 @@ def create_ca_ext_wall_wtcbF1(t_ins: Quantity) -> ConstructionAssembly:
     air_space = AirSpace.create(
         ID='air_space',
         geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=Q_(5.6, 'K'),
+        dT=dT_asp,
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(32.2, 'degC'),
+        Tmn=T_asp,
         surface_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
         inclination_angle=Q_(0.0, 'deg')
     )
@@ -71,7 +79,7 @@ def create_ca_ext_wall_wtcbF1(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcbF1 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -89,7 +97,7 @@ def create_ca_ext_wall_wtcbF1(t_ins: Quantity) -> ConstructionAssembly:
         ventilated_layer_ID=air_space.ID,
         area_of_openings=Q_(1000, 'mm ** 2'),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC')
+        Tmn=T_asp
     )
     ext_wall = ext_wall.apply_insulation_correction(
         insulation_layer_ID=insulation.ID,
@@ -97,8 +105,8 @@ def create_ca_ext_wall_wtcbF1(t_ins: Quantity) -> ConstructionAssembly:
         mechanical_fastening=MechanicalFastening.create(
             diameter=Q_(2, 'mm'),
             number_per_unit_area=Q_(4, '1 / m ** 2'),
-            insulation_thickness=Q_(6, 'cm'),
-            length=Q_(6, 'cm')
+            insulation_thickness=t_ins,
+            length=t_ins
         )
     )
     ext_wall.layers['outer_leaf'].slices = 10
@@ -111,13 +119,21 @@ def create_ca_ext_wall_wtcbF1(t_ins: Quantity) -> ConstructionAssembly:
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F2
 # ------------------------------------------------------------------------------
 
-def create_ca_ext_wall_wtcbF2(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ext_wall_wtcbF2(
+    t_ins: Quantity,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    T_asp: Quantity = Q_(10, 'degC'),
+    dT_asp: Quantity = Q_(5, 'K'),
+    v_wind: Quantity = Q_(4, 'm / s')
+) -> ConstructionAssembly:
     ext_surf_film = SurfaceLayer.create(
         ID='ext_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC'),
-        internal_surface=False
+        Tmn=T_ext,
+        internal_surface=False,
+        wind_speed=v_wind
     )
     outer_leaf = BuildingComponent.create(
         ID='outer_leaf',
@@ -127,9 +143,9 @@ def create_ca_ext_wall_wtcbF2(t_ins: Quantity) -> ConstructionAssembly:
     air_space = AirSpace.create(
         ID='air_space',
         geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=Q_(5.6, 'K'),
+        dT=dT_asp,
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(32.2, 'degC'),
+        Tmn=T_asp,
         surface_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
         inclination_angle=Q_(0.0, 'deg')
     )
@@ -152,7 +168,7 @@ def create_ca_ext_wall_wtcbF2(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcbF2 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -170,7 +186,7 @@ def create_ca_ext_wall_wtcbF2(t_ins: Quantity) -> ConstructionAssembly:
         ventilated_layer_ID=air_space.ID,
         area_of_openings=Q_(1000, 'mm ** 2'),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC')
+        Tmn=T_asp
     )
     ext_wall = ext_wall.apply_insulation_correction(
         insulation_layer_ID=insulation.ID,
@@ -178,8 +194,8 @@ def create_ca_ext_wall_wtcbF2(t_ins: Quantity) -> ConstructionAssembly:
         mechanical_fastening=MechanicalFastening.create(
             diameter=Q_(2, 'mm'),
             number_per_unit_area=Q_(4, '1 / m ** 2'),
-            insulation_thickness=Q_(6, 'cm'),
-            length=Q_(6, 'cm')
+            insulation_thickness=t_ins,
+            length=t_ins
         )
     )
     ext_wall.layers['outer_leaf'].slices = 10
@@ -192,13 +208,21 @@ def create_ca_ext_wall_wtcbF2(t_ins: Quantity) -> ConstructionAssembly:
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F3
 # ------------------------------------------------------------------------------
 
-def create_ca_ext_wall_wtcbF3(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ext_wall_wtcbF3(
+    t_ins: Quantity,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    T_asp: Quantity = Q_(10, 'degC'),
+    dT_asp: Quantity = Q_(5, 'K'),
+    v_wind: Quantity = Q_(4, 'm / s')
+) -> ConstructionAssembly:
     ext_surf_film = SurfaceLayer.create(
         ID='ext_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC'),
-        internal_surface=False
+        Tmn=T_ext,
+        internal_surface=False,
+        wind_speed=v_wind
     )
     outer_leaf = BuildingComponent.create(
         ID='outer_leaf',
@@ -208,9 +232,9 @@ def create_ca_ext_wall_wtcbF3(t_ins: Quantity) -> ConstructionAssembly:
     air_space = AirSpace.create(
         ID='air_space',
         geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=Q_(5.6, 'K'),
+        dT=dT_asp,
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(32.2, 'degC'),
+        Tmn=T_asp,
         surface_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
         inclination_angle=Q_(0.0, 'deg')
     )
@@ -233,7 +257,7 @@ def create_ca_ext_wall_wtcbF3(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcbF3 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -251,7 +275,7 @@ def create_ca_ext_wall_wtcbF3(t_ins: Quantity) -> ConstructionAssembly:
         ventilated_layer_ID=air_space.ID,
         area_of_openings=Q_(1000, 'mm ** 2'),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC')
+        Tmn=T_asp
     )
     ext_wall = ext_wall.apply_insulation_correction(
         insulation_layer_ID=insulation.ID,
@@ -259,8 +283,8 @@ def create_ca_ext_wall_wtcbF3(t_ins: Quantity) -> ConstructionAssembly:
         mechanical_fastening=MechanicalFastening.create(
             diameter=Q_(2, 'mm'),
             number_per_unit_area=Q_(4, '1 / m ** 2'),
-            insulation_thickness=Q_(6, 'cm'),
-            length=Q_(6, 'cm')
+            insulation_thickness=t_ins,
+            length=t_ins
         )
     )
     ext_wall.layers['outer_leaf'].slices = 10
@@ -273,13 +297,21 @@ def create_ca_ext_wall_wtcbF3(t_ins: Quantity) -> ConstructionAssembly:
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F4
 # ------------------------------------------------------------------------------
 
-def create_ca_ext_wall_wtcbF4(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ext_wall_wtcbF4(
+    t_ins: Quantity,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    T_asp: Quantity = Q_(10, 'degC'),
+    dT_asp: Quantity = Q_(5, 'K'),
+    v_wind: Quantity = Q_(4, 'm / s')
+) -> ConstructionAssembly:
     ext_surf_film = SurfaceLayer.create(
         ID='ext_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC'),
-        internal_surface=False
+        Tmn=T_ext,
+        internal_surface=False,
+        wind_speed=v_wind
     )
     outer_leaf = BuildingComponent.create(
         ID='outer_leaf',
@@ -289,9 +321,9 @@ def create_ca_ext_wall_wtcbF4(t_ins: Quantity) -> ConstructionAssembly:
     air_space = AirSpace.create(
         ID='air_space',
         geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=Q_(5.6, 'K'),
+        dT=dT_asp,
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(32.2, 'degC'),
+        Tmn=T_asp,
         surface_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
         inclination_angle=Q_(0.0, 'deg')
     )
@@ -314,7 +346,7 @@ def create_ca_ext_wall_wtcbF4(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcbF4 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -332,7 +364,7 @@ def create_ca_ext_wall_wtcbF4(t_ins: Quantity) -> ConstructionAssembly:
         ventilated_layer_ID=air_space.ID,
         area_of_openings=Q_(1000, 'mm ** 2'),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC')
+        Tmn=T_asp
     )
     ext_wall = ext_wall.apply_insulation_correction(
         insulation_layer_ID=insulation.ID,
@@ -340,8 +372,8 @@ def create_ca_ext_wall_wtcbF4(t_ins: Quantity) -> ConstructionAssembly:
         mechanical_fastening=MechanicalFastening.create(
             diameter=Q_(2, 'mm'),
             number_per_unit_area=Q_(4, '1 / m ** 2'),
-            insulation_thickness=Q_(6, 'cm'),
-            length=Q_(6, 'cm')
+            insulation_thickness=t_ins,
+            length=t_ins
         )
     )
     ext_wall.layers['outer_leaf'].slices = 10
@@ -354,13 +386,21 @@ def create_ca_ext_wall_wtcbF4(t_ins: Quantity) -> ConstructionAssembly:
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F5
 # ------------------------------------------------------------------------------
 
-def create_ca_ext_wall_wtcbF5(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ext_wall_wtcbF5(
+    t_ins: Quantity,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    T_asp: Quantity = Q_(10, 'degC'),
+    dT_asp: Quantity = Q_(5, 'K'),
+    v_wind: Quantity = Q_(4, 'm / s')
+) -> ConstructionAssembly:
     ext_surf_film = SurfaceLayer.create(
         ID='ext_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC'),
-        internal_surface=False
+        Tmn=T_ext,
+        internal_surface=False,
+        wind_speed=v_wind
     )
     outer_leaf = BuildingComponent.create(
         ID='outer_leaf',
@@ -370,9 +410,9 @@ def create_ca_ext_wall_wtcbF5(t_ins: Quantity) -> ConstructionAssembly:
     air_space = AirSpace.create(
         ID='air_space',
         geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=Q_(5.6, 'K'),
+        dT=dT_asp,
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(32.2, 'degC'),
+        Tmn=T_asp,
         surface_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
         inclination_angle=Q_(0.0, 'deg')
     )
@@ -395,7 +435,7 @@ def create_ca_ext_wall_wtcbF5(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcbF5 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -413,7 +453,7 @@ def create_ca_ext_wall_wtcbF5(t_ins: Quantity) -> ConstructionAssembly:
         ventilated_layer_ID=air_space.ID,
         area_of_openings=Q_(1000, 'mm ** 2'),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC')
+        Tmn=T_asp
     )
     ext_wall = ext_wall.apply_insulation_correction(
         insulation_layer_ID=insulation.ID,
@@ -421,8 +461,8 @@ def create_ca_ext_wall_wtcbF5(t_ins: Quantity) -> ConstructionAssembly:
         mechanical_fastening=MechanicalFastening.create(
             diameter=Q_(2, 'mm'),
             number_per_unit_area=Q_(4, '1 / m ** 2'),
-            insulation_thickness=Q_(6, 'cm'),
-            length=Q_(6, 'cm')
+            insulation_thickness=t_ins,
+            length=t_ins
         )
     )
     ext_wall.layers['outer_leaf'].slices = 10
@@ -435,13 +475,21 @@ def create_ca_ext_wall_wtcbF5(t_ins: Quantity) -> ConstructionAssembly:
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F6
 # ------------------------------------------------------------------------------
 
-def create_ca_ext_wall_wtcbF6(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ext_wall_wtcbF6(
+    t_ins: Quantity,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    T_asp: Quantity = Q_(10, 'degC'),
+    dT_asp: Quantity = Q_(5, 'K'),
+    v_wind: Quantity = Q_(4, 'm / s')
+) -> ConstructionAssembly:
     ext_surf_film = SurfaceLayer.create(
         ID='ext_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC'),
-        internal_surface=False
+        Tmn=T_ext,
+        internal_surface=False,
+        wind_speed=v_wind
     )
     outer_leaf = BuildingComponent.create(
         ID='outer_leaf',
@@ -451,9 +499,9 @@ def create_ca_ext_wall_wtcbF6(t_ins: Quantity) -> ConstructionAssembly:
     air_space = AirSpace.create(
         ID='air_space',
         geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=Q_(5.6, 'K'),
+        dT=dT_asp,
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(32.2, 'degC'),
+        Tmn=T_asp,
         surface_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
         inclination_angle=Q_(0.0, 'deg')
     )
@@ -476,7 +524,7 @@ def create_ca_ext_wall_wtcbF6(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcbF6 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -494,7 +542,7 @@ def create_ca_ext_wall_wtcbF6(t_ins: Quantity) -> ConstructionAssembly:
         ventilated_layer_ID=air_space.ID,
         area_of_openings=Q_(1000, 'mm ** 2'),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC')
+        Tmn=T_asp
     )
     ext_wall = ext_wall.apply_insulation_correction(
         insulation_layer_ID=insulation.ID,
@@ -502,8 +550,8 @@ def create_ca_ext_wall_wtcbF6(t_ins: Quantity) -> ConstructionAssembly:
         mechanical_fastening=MechanicalFastening.create(
             diameter=Q_(2, 'mm'),
             number_per_unit_area=Q_(4, '1 / m ** 2'),
-            insulation_thickness=Q_(6, 'cm'),
-            length=Q_(6, 'cm')
+            insulation_thickness=t_ins,
+            length=t_ins
         )
     )
     ext_wall.layers['outer_leaf'].slices = 10
@@ -516,13 +564,21 @@ def create_ca_ext_wall_wtcbF6(t_ins: Quantity) -> ConstructionAssembly:
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F7
 # ------------------------------------------------------------------------------
 
-def create_ca_ext_wall_wtcbF7(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ext_wall_wtcbF7(
+    t_ins: Quantity,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    T_asp: Quantity = Q_(10, 'degC'),
+    dT_asp: Quantity = Q_(5, 'K'),
+    v_wind: Quantity = Q_(4, 'm / s')
+) -> ConstructionAssembly:
     ext_surf_film = SurfaceLayer.create(
         ID='ext_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC'),
-        internal_surface=False
+        Tmn=T_ext,
+        internal_surface=False,
+        wind_speed=v_wind
     )
     outer_leaf = BuildingComponent.create(
         ID='outer_leaf',
@@ -532,9 +588,9 @@ def create_ca_ext_wall_wtcbF7(t_ins: Quantity) -> ConstructionAssembly:
     air_space = AirSpace.create(
         ID='air_space',
         geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=Q_(5.6, 'K'),
+        dT=dT_asp,
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(32.2, 'degC'),
+        Tmn=T_asp,
         surface_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
         inclination_angle=Q_(0.0, 'deg')
     )
@@ -557,7 +613,7 @@ def create_ca_ext_wall_wtcbF7(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcbF7 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -575,7 +631,7 @@ def create_ca_ext_wall_wtcbF7(t_ins: Quantity) -> ConstructionAssembly:
         ventilated_layer_ID=air_space.ID,
         area_of_openings=Q_(1000, 'mm ** 2'),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC')
+        Tmn=T_asp
     )
     ext_wall = ext_wall.apply_insulation_correction(
         insulation_layer_ID=insulation.ID,
@@ -583,8 +639,8 @@ def create_ca_ext_wall_wtcbF7(t_ins: Quantity) -> ConstructionAssembly:
         mechanical_fastening=MechanicalFastening.create(
             diameter=Q_(2, 'mm'),
             number_per_unit_area=Q_(4, '1 / m ** 2'),
-            insulation_thickness=Q_(6, 'cm'),
-            length=Q_(6, 'cm')
+            insulation_thickness=t_ins,
+            length=t_ins
         )
     )
     ext_wall.layers['outer_leaf'].slices = 10
@@ -597,13 +653,21 @@ def create_ca_ext_wall_wtcbF7(t_ins: Quantity) -> ConstructionAssembly:
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F8
 # ------------------------------------------------------------------------------
 
-def create_ca_ext_wall_wtcbF8(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ext_wall_wtcbF8(
+    t_ins: Quantity,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    T_asp: Quantity = Q_(10, 'degC'),
+    dT_asp: Quantity = Q_(5, 'K'),
+    v_wind: Quantity = Q_(4, 'm / s')
+) -> ConstructionAssembly:
     ext_surf_film = SurfaceLayer.create(
         ID='ext_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC'),
-        internal_surface=False
+        Tmn=T_ext,
+        internal_surface=False,
+        wind_speed=v_wind
     )
     outer_leaf = BuildingComponent.create(
         ID='outer_leaf',
@@ -613,9 +677,9 @@ def create_ca_ext_wall_wtcbF8(t_ins: Quantity) -> ConstructionAssembly:
     air_space = AirSpace.create(
         ID='air_space',
         geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=Q_(5.6, 'K'),
+        dT=dT_asp,
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(32.2, 'degC'),
+        Tmn=T_asp,
         surface_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
         inclination_angle=Q_(0.0, 'deg')
     )
@@ -638,7 +702,7 @@ def create_ca_ext_wall_wtcbF8(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcbF8 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -656,7 +720,7 @@ def create_ca_ext_wall_wtcbF8(t_ins: Quantity) -> ConstructionAssembly:
         ventilated_layer_ID=air_space.ID,
         area_of_openings=Q_(1000, 'mm ** 2'),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC')
+        Tmn=T_asp
     )
     ext_wall = ext_wall.apply_insulation_correction(
         insulation_layer_ID=insulation.ID,
@@ -664,8 +728,8 @@ def create_ca_ext_wall_wtcbF8(t_ins: Quantity) -> ConstructionAssembly:
         mechanical_fastening=MechanicalFastening.create(
             diameter=Q_(2, 'mm'),
             number_per_unit_area=Q_(4, '1 / m ** 2'),
-            insulation_thickness=Q_(6, 'cm'),
-            length=Q_(6, 'cm')
+            insulation_thickness=t_ins,
+            length=t_ins
         )
     )
     ext_wall.layers['outer_leaf'].slices = 10
@@ -678,13 +742,21 @@ def create_ca_ext_wall_wtcbF8(t_ins: Quantity) -> ConstructionAssembly:
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F9
 # ------------------------------------------------------------------------------
 
-def create_ca_ext_wall_wtcbF9(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ext_wall_wtcbF9(
+    t_ins: Quantity,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    T_asp: Quantity = Q_(10, 'degC'),
+    dT_asp: Quantity = Q_(5, 'K'),
+    v_wind: Quantity = Q_(4, 'm / s')
+) -> ConstructionAssembly:
     ext_surf_film = SurfaceLayer.create(
         ID='ext_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC'),
-        internal_surface=False
+        Tmn=T_ext,
+        internal_surface=False,
+        wind_speed=v_wind
     )
     outer_leaf = BuildingComponent.create(
         ID='outer_leaf',
@@ -694,9 +766,9 @@ def create_ca_ext_wall_wtcbF9(t_ins: Quantity) -> ConstructionAssembly:
     air_space = AirSpace.create(
         ID='air_space',
         geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=Q_(5.6, 'K'),
+        dT=dT_asp,
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(32.2, 'degC'),
+        Tmn=T_asp,
         surface_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
         inclination_angle=Q_(0.0, 'deg')
     )
@@ -719,7 +791,7 @@ def create_ca_ext_wall_wtcbF9(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcbF9 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -737,7 +809,7 @@ def create_ca_ext_wall_wtcbF9(t_ins: Quantity) -> ConstructionAssembly:
         ventilated_layer_ID=air_space.ID,
         area_of_openings=Q_(1000, 'mm ** 2'),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC')
+        Tmn=T_asp
     )
     ext_wall = ext_wall.apply_insulation_correction(
         insulation_layer_ID=insulation.ID,
@@ -745,8 +817,8 @@ def create_ca_ext_wall_wtcbF9(t_ins: Quantity) -> ConstructionAssembly:
         mechanical_fastening=MechanicalFastening.create(
             diameter=Q_(2, 'mm'),
             number_per_unit_area=Q_(4, '1 / m ** 2'),
-            insulation_thickness=Q_(6, 'cm'),
-            length=Q_(6, 'cm')
+            insulation_thickness=t_ins,
+            length=t_ins
         )
     )
     ext_wall.layers['outer_leaf'].slices = 10
@@ -759,13 +831,21 @@ def create_ca_ext_wall_wtcbF9(t_ins: Quantity) -> ConstructionAssembly:
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F10
 # ------------------------------------------------------------------------------
 
-def create_ca_ext_wall_wtcbF10(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ext_wall_wtcbF10(
+    t_ins: Quantity,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    T_asp: Quantity = Q_(10, 'degC'),
+    dT_asp: Quantity = Q_(5, 'K'),
+    v_wind: Quantity = Q_(4, 'm / s')
+) -> ConstructionAssembly:
     ext_surf_film = SurfaceLayer.create(
         ID='ext_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC'),
-        internal_surface=False
+        Tmn=T_ext,
+        internal_surface=False,
+        wind_speed=v_wind
     )
     outer_leaf = BuildingComponent.create(
         ID='outer_leaf',
@@ -775,9 +855,9 @@ def create_ca_ext_wall_wtcbF10(t_ins: Quantity) -> ConstructionAssembly:
     air_space = AirSpace.create(
         ID='air_space',
         geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=Q_(5.6, 'K'),
+        dT=dT_asp,
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(32.2, 'degC'),
+        Tmn=T_asp,
         surface_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
         inclination_angle=Q_(0.0, 'deg')
     )
@@ -800,7 +880,7 @@ def create_ca_ext_wall_wtcbF10(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcbF10 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -818,7 +898,7 @@ def create_ca_ext_wall_wtcbF10(t_ins: Quantity) -> ConstructionAssembly:
         ventilated_layer_ID=air_space.ID,
         area_of_openings=Q_(1000, 'mm ** 2'),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC')
+        Tmn=T_asp
     )
     ext_wall = ext_wall.apply_insulation_correction(
         insulation_layer_ID=insulation.ID,
@@ -826,8 +906,8 @@ def create_ca_ext_wall_wtcbF10(t_ins: Quantity) -> ConstructionAssembly:
         mechanical_fastening=MechanicalFastening.create(
             diameter=Q_(2, 'mm'),
             number_per_unit_area=Q_(4, '1 / m ** 2'),
-            insulation_thickness=Q_(6, 'cm'),
-            length=Q_(6, 'cm')
+            insulation_thickness=t_ins,
+            length=t_ins
         )
     )
     ext_wall.layers['outer_leaf'].slices = 10
@@ -840,13 +920,21 @@ def create_ca_ext_wall_wtcbF10(t_ins: Quantity) -> ConstructionAssembly:
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F11
 # ------------------------------------------------------------------------------
 
-def create_ca_ext_wall_wtcbF11(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ext_wall_wtcbF11(
+    t_ins: Quantity,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    T_asp: Quantity = Q_(10, 'degC'),
+    dT_asp: Quantity = Q_(5, 'K'),
+    v_wind: Quantity = Q_(4, 'm / s')
+) -> ConstructionAssembly:
     ext_surf_film = SurfaceLayer.create(
         ID='ext_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC'),
-        internal_surface=False
+        Tmn=T_ext,
+        internal_surface=False,
+        wind_speed=v_wind
     )
     outer_leaf = BuildingComponent.create(
         ID='outer_leaf',
@@ -856,9 +944,9 @@ def create_ca_ext_wall_wtcbF11(t_ins: Quantity) -> ConstructionAssembly:
     air_space = AirSpace.create(
         ID='air_space',
         geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=Q_(5.6, 'K'),
+        dT=dT_asp,
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(32.2, 'degC'),
+        Tmn=T_asp,
         surface_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
         inclination_angle=Q_(0.0, 'deg')
     )
@@ -881,7 +969,7 @@ def create_ca_ext_wall_wtcbF11(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcbF11 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -899,7 +987,7 @@ def create_ca_ext_wall_wtcbF11(t_ins: Quantity) -> ConstructionAssembly:
         ventilated_layer_ID=air_space.ID,
         area_of_openings=Q_(1000, 'mm ** 2'),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC')
+        Tmn=T_asp
     )
     ext_wall = ext_wall.apply_insulation_correction(
         insulation_layer_ID=insulation.ID,
@@ -907,8 +995,8 @@ def create_ca_ext_wall_wtcbF11(t_ins: Quantity) -> ConstructionAssembly:
         mechanical_fastening=MechanicalFastening.create(
             diameter=Q_(2, 'mm'),
             number_per_unit_area=Q_(4, '1 / m ** 2'),
-            insulation_thickness=Q_(6, 'cm'),
-            length=Q_(6, 'cm')
+            insulation_thickness=t_ins,
+            length=t_ins
         )
     )
     ext_wall.layers['outer_leaf'].slices = 10
@@ -921,13 +1009,21 @@ def create_ca_ext_wall_wtcbF11(t_ins: Quantity) -> ConstructionAssembly:
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F12
 # ------------------------------------------------------------------------------
 
-def create_ca_ext_wall_wtcbF12(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ext_wall_wtcbF12(
+    t_ins: Quantity,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    T_asp: Quantity = Q_(10, 'degC'),
+    dT_asp: Quantity = Q_(5, 'K'),
+    v_wind: Quantity = Q_(4, 'm / s')
+) -> ConstructionAssembly:
     ext_surf_film = SurfaceLayer.create(
         ID='ext_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC'),
-        internal_surface=False
+        Tmn=T_ext,
+        internal_surface=False,
+        wind_speed=v_wind
     )
     outer_leaf = BuildingComponent.create(
         ID='outer_leaf',
@@ -937,9 +1033,9 @@ def create_ca_ext_wall_wtcbF12(t_ins: Quantity) -> ConstructionAssembly:
     air_space = AirSpace.create(
         ID='air_space',
         geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=Q_(5.6, 'K'),
+        dT=dT_asp,
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(32.2, 'degC'),
+        Tmn=T_asp,
         surface_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
         inclination_angle=Q_(0.0, 'deg')
     )
@@ -962,7 +1058,7 @@ def create_ca_ext_wall_wtcbF12(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcbF12 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -980,7 +1076,7 @@ def create_ca_ext_wall_wtcbF12(t_ins: Quantity) -> ConstructionAssembly:
         ventilated_layer_ID=air_space.ID,
         area_of_openings=Q_(1000, 'mm ** 2'),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC')
+        Tmn=T_asp
     )
     ext_wall = ext_wall.apply_insulation_correction(
         insulation_layer_ID=insulation.ID,
@@ -988,8 +1084,8 @@ def create_ca_ext_wall_wtcbF12(t_ins: Quantity) -> ConstructionAssembly:
         mechanical_fastening=MechanicalFastening.create(
             diameter=Q_(2, 'mm'),
             number_per_unit_area=Q_(4, '1 / m ** 2'),
-            insulation_thickness=Q_(6, 'cm'),
-            length=Q_(6, 'cm')
+            insulation_thickness=t_ins,
+            length=t_ins
         )
     )
     ext_wall.layers['outer_leaf'].slices = 10
@@ -1002,13 +1098,21 @@ def create_ca_ext_wall_wtcbF12(t_ins: Quantity) -> ConstructionAssembly:
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F13
 # ------------------------------------------------------------------------------
 
-def create_ca_ext_wall_wtcbF13(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ext_wall_wtcbF13(
+    t_ins: Quantity,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    T_asp: Quantity = Q_(10, 'degC'),
+    dT_asp: Quantity = Q_(5, 'K'),
+    v_wind: Quantity = Q_(4, 'm / s')
+) -> ConstructionAssembly:
     ext_surf_film = SurfaceLayer.create(
         ID='ext_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC'),
-        internal_surface=False
+        Tmn=T_ext,
+        internal_surface=False,
+        wind_speed=v_wind
     )
     outer_leaf = BuildingComponent.create(
         ID='outer_leaf',
@@ -1018,9 +1122,9 @@ def create_ca_ext_wall_wtcbF13(t_ins: Quantity) -> ConstructionAssembly:
     air_space = AirSpace.create(
         ID='air_space',
         geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=Q_(5.6, 'K'),
+        dT=dT_asp,
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(32.2, 'degC'),
+        Tmn=T_asp,
         surface_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
         inclination_angle=Q_(0.0, 'deg')
     )
@@ -1043,7 +1147,7 @@ def create_ca_ext_wall_wtcbF13(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcbF13 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -1061,7 +1165,7 @@ def create_ca_ext_wall_wtcbF13(t_ins: Quantity) -> ConstructionAssembly:
         ventilated_layer_ID=air_space.ID,
         area_of_openings=Q_(1000, 'mm ** 2'),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC')
+        Tmn=T_asp
     )
     ext_wall = ext_wall.apply_insulation_correction(
         insulation_layer_ID=insulation.ID,
@@ -1069,8 +1173,8 @@ def create_ca_ext_wall_wtcbF13(t_ins: Quantity) -> ConstructionAssembly:
         mechanical_fastening=MechanicalFastening.create(
             diameter=Q_(2, 'mm'),
             number_per_unit_area=Q_(4, '1 / m ** 2'),
-            insulation_thickness=Q_(6, 'cm'),
-            length=Q_(6, 'cm')
+            insulation_thickness=t_ins,
+            length=t_ins
         )
     )
     ext_wall.layers['outer_leaf'].slices = 10
@@ -1083,13 +1187,21 @@ def create_ca_ext_wall_wtcbF13(t_ins: Quantity) -> ConstructionAssembly:
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F14
 # ------------------------------------------------------------------------------
 
-def create_ca_ext_wall_wtcbF14(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ext_wall_wtcbF14(
+    t_ins: Quantity,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    T_asp: Quantity = Q_(10, 'degC'),
+    dT_asp: Quantity = Q_(5, 'K'),
+    v_wind: Quantity = Q_(4, 'm / s')
+) -> ConstructionAssembly:
     ext_surf_film = SurfaceLayer.create(
         ID='ext_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC'),
-        internal_surface=False
+        Tmn=T_ext,
+        internal_surface=False,
+        wind_speed=v_wind
     )
     wood_siding = BuildingComponent.create(
         ID='wood_siding',
@@ -1103,9 +1215,9 @@ def create_ca_ext_wall_wtcbF14(t_ins: Quantity) -> ConstructionAssembly:
     air_space = AirSpace.create(
         ID='air_space',
         geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=Q_(5.6, 'K'),
+        dT=dT_asp,
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(32.2, 'degC'),
+        Tmn=T_asp,
         surface_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
         inclination_angle=Q_(0.0, 'deg')
     )
@@ -1128,7 +1240,7 @@ def create_ca_ext_wall_wtcbF14(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcbF14 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -1146,7 +1258,7 @@ def create_ca_ext_wall_wtcbF14(t_ins: Quantity) -> ConstructionAssembly:
         ventilated_layer_ID=air_space.ID,
         area_of_openings=Q_(1500, 'mm ** 2'),  # well ventilated
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC')
+        Tmn=T_asp
     )
     ext_wall = ext_wall.apply_insulation_correction(
         insulation_layer_ID=insulation.ID,
@@ -1154,8 +1266,8 @@ def create_ca_ext_wall_wtcbF14(t_ins: Quantity) -> ConstructionAssembly:
         mechanical_fastening=MechanicalFastening.create(
             diameter=Q_(2, 'mm'),
             number_per_unit_area=Q_(4, '1 / m ** 2'),
-            insulation_thickness=Q_(6, 'cm'),
-            length=Q_(6, 'cm')
+            insulation_thickness=t_ins,
+            length=t_ins
         )
     )
     # ext_wall.layers['wood_siding'].slices = 10 --> removed from construction assembly as airspace is well ventilated
@@ -1168,13 +1280,21 @@ def create_ca_ext_wall_wtcbF14(t_ins: Quantity) -> ConstructionAssembly:
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F15
 # ------------------------------------------------------------------------------
 
-def create_ca_ext_wall_wtcbF15(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ext_wall_wtcbF15(
+    t_ins: Quantity,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    T_asp: Quantity = Q_(10, 'degC'),
+    dT_asp: Quantity = Q_(5, 'K'),
+    v_wind: Quantity = Q_(4, 'm / s')
+) -> ConstructionAssembly:
     ext_surf_film = SurfaceLayer.create(
         ID='ext_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC'),
-        internal_surface=False
+        Tmn=T_ext,
+        internal_surface=False,
+        wind_speed=v_wind
     )
     wood_siding = BuildingComponent.create(
         ID='wood_siding',
@@ -1188,9 +1308,9 @@ def create_ca_ext_wall_wtcbF15(t_ins: Quantity) -> ConstructionAssembly:
     air_space = AirSpace.create(
         ID='air_space',
         geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=Q_(5.6, 'K'),
+        dT=dT_asp,
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(32.2, 'degC'),
+        Tmn=T_asp,
         surface_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
         inclination_angle=Q_(0.0, 'deg')
     )
@@ -1213,7 +1333,7 @@ def create_ca_ext_wall_wtcbF15(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcbF15 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -1231,7 +1351,7 @@ def create_ca_ext_wall_wtcbF15(t_ins: Quantity) -> ConstructionAssembly:
         ventilated_layer_ID=air_space.ID,
         area_of_openings=Q_(1500, 'mm ** 2'),  # well ventilated
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC')
+        Tmn=T_asp
     )
     ext_wall = ext_wall.apply_insulation_correction(
         insulation_layer_ID=insulation.ID,
@@ -1239,8 +1359,8 @@ def create_ca_ext_wall_wtcbF15(t_ins: Quantity) -> ConstructionAssembly:
         mechanical_fastening=MechanicalFastening.create(
             diameter=Q_(2, 'mm'),
             number_per_unit_area=Q_(4, '1 / m ** 2'),
-            insulation_thickness=Q_(6, 'cm'),
-            length=Q_(6, 'cm')
+            insulation_thickness=t_ins,
+            length=t_ins
         )
     )
     # ext_wall.layers['wood_siding'].slices = 10 --> removed from construction assembly as airspace is well ventilated
@@ -1253,13 +1373,21 @@ def create_ca_ext_wall_wtcbF15(t_ins: Quantity) -> ConstructionAssembly:
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F16
 # ------------------------------------------------------------------------------
 
-def create_ca_ext_wall_wtcbF16(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ext_wall_wtcbF16(
+    t_ins: Quantity,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    T_asp: Quantity = Q_(10, 'degC'),
+    dT_asp: Quantity = Q_(5, 'K'),
+    v_wind: Quantity = Q_(4, 'm / s')
+) -> ConstructionAssembly:
     ext_surf_film = SurfaceLayer.create(
         ID='ext_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC'),
-        internal_surface=False
+        Tmn=T_ext,
+        internal_surface=False,
+        wind_speed=v_wind
     )
     outer_leaf = BuildingComponent.create(
         ID='outer_leaf',
@@ -1269,9 +1397,9 @@ def create_ca_ext_wall_wtcbF16(t_ins: Quantity) -> ConstructionAssembly:
     air_space = AirSpace.create(
         ID='air_space',
         geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=Q_(5.6, 'K'),
+        dT=dT_asp,
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(32.2, 'degC'),
+        Tmn=T_asp,
         surface_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
         inclination_angle=Q_(0.0, 'deg')
     )
@@ -1294,7 +1422,7 @@ def create_ca_ext_wall_wtcbF16(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcbF16 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -1312,7 +1440,7 @@ def create_ca_ext_wall_wtcbF16(t_ins: Quantity) -> ConstructionAssembly:
         ventilated_layer_ID=air_space.ID,
         area_of_openings=Q_(500, 'mm ** 2'),  # slightly ventilated
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC')
+        Tmn=T_asp
     )
     ext_wall = ext_wall.apply_insulation_correction(
         insulation_layer_ID=insulation.ID,
@@ -1320,8 +1448,8 @@ def create_ca_ext_wall_wtcbF16(t_ins: Quantity) -> ConstructionAssembly:
         mechanical_fastening=MechanicalFastening.create(
             diameter=Q_(2, 'mm'),
             number_per_unit_area=Q_(4, '1 / m ** 2'),
-            insulation_thickness=Q_(6, 'cm'),
-            length=Q_(6, 'cm')
+            insulation_thickness=t_ins,
+            length=t_ins
         )
     )
     ext_wall.layers['outer_leaf'].slices = 10
@@ -1333,13 +1461,21 @@ def create_ca_ext_wall_wtcbF16(t_ins: Quantity) -> ConstructionAssembly:
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F17
 # ------------------------------------------------------------------------------
 
-def create_ca_ext_wall_wtcbF17(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ext_wall_wtcbF17(
+    t_ins: Quantity,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    T_asp: Quantity = Q_(10, 'degC'),
+    dT_asp: Quantity = Q_(5, 'K'),
+    v_wind: Quantity = Q_(4, 'm / s')
+) -> ConstructionAssembly:
     ext_surf_film = SurfaceLayer.create(
         ID='ext_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC'),
-        internal_surface=False
+        Tmn=T_ext,
+        internal_surface=False,
+        wind_speed=v_wind
     )
     wood_siding = BuildingComponent.create(
         ID='wood_siding',
@@ -1353,9 +1489,9 @@ def create_ca_ext_wall_wtcbF17(t_ins: Quantity) -> ConstructionAssembly:
     air_space = AirSpace.create(
         ID='air_space',
         geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=Q_(5.6, 'K'),
+        dT=dT_asp,
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(32.2, 'degC'),
+        Tmn=T_asp,
         surface_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
         inclination_angle=Q_(0.0, 'deg')
     )
@@ -1378,7 +1514,7 @@ def create_ca_ext_wall_wtcbF17(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcbF17(t_ins={t_ins.to("cm"):~P.0f})',
@@ -1396,7 +1532,7 @@ def create_ca_ext_wall_wtcbF17(t_ins: Quantity) -> ConstructionAssembly:
         ventilated_layer_ID=air_space.ID,
         area_of_openings=Q_(1500, 'mm ** 2'),  # well ventilated
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC')
+        Tmn=T_asp
     )
     ext_wall = ext_wall.apply_insulation_correction(
         insulation_layer_ID=insulation.ID,
@@ -1404,8 +1540,8 @@ def create_ca_ext_wall_wtcbF17(t_ins: Quantity) -> ConstructionAssembly:
         mechanical_fastening=MechanicalFastening.create(
             diameter=Q_(2, 'mm'),
             number_per_unit_area=Q_(4, '1 / m ** 2'),
-            insulation_thickness=Q_(6, 'cm'),
-            length=Q_(6, 'cm')
+            insulation_thickness=t_ins,
+            length=t_ins
         )
     )
     # ext_wall.layers['wood_siding'].slices = 10 --> removed from construction assembly as airspace is well ventilated
@@ -1417,13 +1553,19 @@ def create_ca_ext_wall_wtcbF17(t_ins: Quantity) -> ConstructionAssembly:
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F18
 # ------------------------------------------------------------------------------
 
-def create_ca_ext_wall_wtcbF18(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ext_wall_wtcbF18(
+    t_ins: Quantity,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    v_wind: Quantity = Q_(4, 'm / s')
+) -> ConstructionAssembly:
     ext_surf_film = SurfaceLayer.create(
         ID='ext_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC'),
-        internal_surface=False
+        Tmn=T_ext,
+        internal_surface=False,
+        wind_speed=v_wind
     )
     outer_leaf = BuildingComponent.create(
         ID='outer_leaf',
@@ -1449,7 +1591,7 @@ def create_ca_ext_wall_wtcbF18(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcbF18 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -1468,8 +1610,8 @@ def create_ca_ext_wall_wtcbF18(t_ins: Quantity) -> ConstructionAssembly:
         mechanical_fastening=MechanicalFastening.create(
             diameter=Q_(2, 'mm'),
             number_per_unit_area=Q_(4, '1 / m ** 2'),
-            insulation_thickness=Q_(6, 'cm'),
-            length=Q_(6, 'cm')
+            insulation_thickness=t_ins,
+            length=t_ins
         )
     )
     ext_wall.layers['outer_leaf'].slices = 10
@@ -1482,13 +1624,19 @@ def create_ca_ext_wall_wtcbF18(t_ins: Quantity) -> ConstructionAssembly:
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F19
 # ------------------------------------------------------------------------------
 
-def create_ca_ext_wall_wtcbF19(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ext_wall_wtcbF19(
+    t_ins: Quantity,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    v_wind: Quantity = Q_(4, 'm / s')
+) -> ConstructionAssembly:
     ext_surf_film = SurfaceLayer.create(
         ID='ext_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC'),
-        internal_surface=False
+        Tmn=T_ext,
+        internal_surface=False,
+        wind_speed=v_wind
     )
     outer_leaf = BuildingComponent.create(
         ID='outer_leaf',
@@ -1514,7 +1662,7 @@ def create_ca_ext_wall_wtcbF19(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcbF19 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -1533,8 +1681,8 @@ def create_ca_ext_wall_wtcbF19(t_ins: Quantity) -> ConstructionAssembly:
         mechanical_fastening=MechanicalFastening.create(
             diameter=Q_(2, 'mm'),
             number_per_unit_area=Q_(4, '1 / m ** 2'),
-            insulation_thickness=Q_(6, 'cm'),
-            length=Q_(6, 'cm')
+            insulation_thickness=t_ins,
+            length=t_ins
         )
     )
     ext_wall.layers['outer_leaf'].slices = 10
@@ -1547,13 +1695,19 @@ def create_ca_ext_wall_wtcbF19(t_ins: Quantity) -> ConstructionAssembly:
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F20
 # ------------------------------------------------------------------------------
 
-def create_ca_ext_wall_wtcbF20(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ext_wall_wtcbF20(
+    t_ins: Quantity,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    v_wind: Quantity = Q_(4, 'm / s')
+) -> ConstructionAssembly:
     ext_surf_film = SurfaceLayer.create(
         ID='ext_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC'),
-        internal_surface=False
+        Tmn=T_ext,
+        internal_surface=False,
+        wind_speed=v_wind
     )
     cement_plastering = BuildingComponent.create(
         ID='cement_plastering',
@@ -1579,7 +1733,7 @@ def create_ca_ext_wall_wtcbF20(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcbF20 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -1598,8 +1752,8 @@ def create_ca_ext_wall_wtcbF20(t_ins: Quantity) -> ConstructionAssembly:
         mechanical_fastening=MechanicalFastening.create(
             diameter=Q_(2, 'mm'),
             number_per_unit_area=Q_(4, '1 / m ** 2'),
-            insulation_thickness=Q_(6, 'cm'),
-            length=Q_(6, 'cm')
+            insulation_thickness=t_ins,
+            length=t_ins
         )
     )
     ext_wall.layers['cement_plastering'].slices = 2
@@ -1612,13 +1766,19 @@ def create_ca_ext_wall_wtcbF20(t_ins: Quantity) -> ConstructionAssembly:
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F21
 # ------------------------------------------------------------------------------
 
-def create_ca_ext_wall_wtcbF21(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ext_wall_wtcbF21(
+    t_ins: Quantity,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    v_wind: Quantity = Q_(4, 'm / s')
+) -> ConstructionAssembly:
     ext_surf_film = SurfaceLayer.create(
         ID='ext_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC'),
-        internal_surface=False
+        Tmn=T_ext,
+        internal_surface=False,
+        wind_speed=v_wind
     )
     cement_plastering = BuildingComponent.create(
         ID='cement_plastering',
@@ -1644,7 +1804,7 @@ def create_ca_ext_wall_wtcbF21(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcbF21 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -1663,8 +1823,8 @@ def create_ca_ext_wall_wtcbF21(t_ins: Quantity) -> ConstructionAssembly:
         mechanical_fastening=MechanicalFastening.create(
             diameter=Q_(2, 'mm'),
             number_per_unit_area=Q_(4, '1 / m ** 2'),
-            insulation_thickness=Q_(6, 'cm'),
-            length=Q_(6, 'cm')
+            insulation_thickness=t_ins,
+            length=t_ins
         )
     )
     ext_wall.layers['cement_plastering'].slices = 2
@@ -1677,13 +1837,21 @@ def create_ca_ext_wall_wtcbF21(t_ins: Quantity) -> ConstructionAssembly:
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F22
 # ------------------------------------------------------------------------------
 
-def create_ca_ext_wall_wtcbF22(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ext_wall_wtcbF22(
+    t_ins: Quantity,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    T_asp: Quantity = Q_(10, 'degC'),
+    dT_asp: Quantity = Q_(5, 'K'),
+    v_wind: Quantity = Q_(4, 'm / s')
+) -> ConstructionAssembly:
     ext_surf_film = SurfaceLayer.create(
         ID='ext_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC'),
-        internal_surface=False
+        Tmn=T_ext,
+        internal_surface=False,
+        wind_speed=v_wind
     )
     vinyl_siding = BuildingComponent.create(
         ID='vinyl_siding',
@@ -1697,9 +1865,9 @@ def create_ca_ext_wall_wtcbF22(t_ins: Quantity) -> ConstructionAssembly:
     air_space = AirSpace.create(
         ID='air_space',
         geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=Q_(5.6, 'K'),
+        dT=dT_asp,
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(32.2, 'degC'),
+        Tmn=T_asp,
         surface_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
         inclination_angle=Q_(0.0, 'deg')
     )
@@ -1722,7 +1890,7 @@ def create_ca_ext_wall_wtcbF22(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcbF22 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -1740,7 +1908,7 @@ def create_ca_ext_wall_wtcbF22(t_ins: Quantity) -> ConstructionAssembly:
         ventilated_layer_ID=air_space.ID,
         area_of_openings=Q_(1500, 'mm ** 2'),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30.0, 'degC')
+        Tmn=T_asp
     )
     ext_wall = ext_wall.apply_insulation_correction(
         insulation_layer_ID=insulation.ID,
@@ -1748,8 +1916,8 @@ def create_ca_ext_wall_wtcbF22(t_ins: Quantity) -> ConstructionAssembly:
         mechanical_fastening=MechanicalFastening.create(
             diameter=Q_(2, 'mm'),
             number_per_unit_area=Q_(4, '1 / m ** 2'),
-            insulation_thickness=Q_(6, 'cm'),
-            length=Q_(6, 'cm')
+            insulation_thickness=t_ins,
+            length=t_ins
         )
     )
     ext_wall.layers['outer_leaf'].slices = 15
@@ -1762,13 +1930,21 @@ def create_ca_ext_wall_wtcbF22(t_ins: Quantity) -> ConstructionAssembly:
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F23
 # ------------------------------------------------------------------------------
 
-def create_ca_ext_wall_wtcbF23(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_ext_wall_wtcbF23(
+    t_ins: Quantity,
+    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_int: Quantity = Q_(20.0, 'degC'),
+    T_asp: Quantity = Q_(10, 'degC'),
+    dT_asp: Quantity = Q_(5, 'K'),
+    v_wind: Quantity = Q_(4, 'm / s')
+) -> ConstructionAssembly:
     ext_surf_film = SurfaceLayer.create(
         ID='ext_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30, 'degC'),
-        internal_surface=False
+        Tmn=T_ext,
+        internal_surface=False,
+        wind_speed=v_wind
     )
     vinyl_siding = BuildingComponent.create(
         ID='vinyl_siding',
@@ -1782,9 +1958,9 @@ def create_ca_ext_wall_wtcbF23(t_ins: Quantity) -> ConstructionAssembly:
     air_space = AirSpace.create(
         ID='air_space',
         geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=Q_(5.6, 'K'),
+        dT=dT_asp,
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(32.2, 'degC'),
+        Tmn=T_asp,
         surface_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
         inclination_angle=Q_(0.0, 'deg')
     )
@@ -1807,7 +1983,7 @@ def create_ca_ext_wall_wtcbF23(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcbF22 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -1825,7 +2001,7 @@ def create_ca_ext_wall_wtcbF23(t_ins: Quantity) -> ConstructionAssembly:
         ventilated_layer_ID=air_space.ID,
         area_of_openings=Q_(1500, 'mm ** 2'),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(30.0, 'degC')
+        Tmn=T_asp
     )
     ext_wall = ext_wall.apply_insulation_correction(
         insulation_layer_ID=insulation.ID,
@@ -1833,8 +2009,8 @@ def create_ca_ext_wall_wtcbF23(t_ins: Quantity) -> ConstructionAssembly:
         mechanical_fastening=MechanicalFastening.create(
             diameter=Q_(2, 'mm'),
             number_per_unit_area=Q_(4, '1 / m ** 2'),
-            insulation_thickness=Q_(6, 'cm'),
-            length=Q_(6, 'cm')
+            insulation_thickness=t_ins,
+            length=t_ins
         )
     )
     ext_wall.layers['outer_leaf'].slices = 15

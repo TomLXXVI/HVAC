@@ -28,12 +28,16 @@ Q_ = Quantity
 # INTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F1
 # ------------------------------------------------------------------------------
 
-def create_ca_int_wall_wtcbF1(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_int_wall_wtcbF1(
+    t_ins: Quantity,
+    T_adj: Quantity = Q_(10, 'degC'),
+    T_int: Quantity = Q_(20, 'degC')
+) -> ConstructionAssembly:
     adj_surf_film = SurfaceLayer.create(
         ID='adj_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24, 'degC'),
+        Tmn=T_adj,
     )
     insulation = BuildingComponent.create(
         ID='insulation',
@@ -54,7 +58,7 @@ def create_ca_int_wall_wtcbF1(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     int_wall = ConstructionAssembly.create(
         ID=f'int_wall_wtcbF1 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -82,12 +86,16 @@ def create_ca_int_wall_wtcbF1(t_ins: Quantity) -> ConstructionAssembly:
 # INTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F2
 # ------------------------------------------------------------------------------
 
-def create_ca_int_wall_wtcbF2(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_int_wall_wtcbF2(
+    t_ins: Quantity,
+    T_adj: Quantity = Q_(10, 'degC'),
+    T_int: Quantity = Q_(20, 'degC')
+) -> ConstructionAssembly:
     adj_surf_film = SurfaceLayer.create(
         ID='adj_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24, 'degC'),
+        Tmn=T_adj,
     )
     insulation = BuildingComponent.create(
         ID='insulation',
@@ -108,7 +116,7 @@ def create_ca_int_wall_wtcbF2(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     int_wall = ConstructionAssembly.create(
         ID=f'int_wall_wtcbF2 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -136,12 +144,16 @@ def create_ca_int_wall_wtcbF2(t_ins: Quantity) -> ConstructionAssembly:
 # INTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F3
 # ------------------------------------------------------------------------------
 
-def create_ca_int_wall_wtcbF3(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_int_wall_wtcbF3(
+    t_ins: Quantity,
+    T_adj: Quantity = Q_(10, 'degC'),
+    T_int: Quantity = Q_(20, 'degC')
+) -> ConstructionAssembly:
     adj_surf_film = SurfaceLayer.create(
         ID='adj_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24, 'degC'),
+        Tmn=T_adj
     )
     insulation = BuildingComponent.create(
         ID='insulation',
@@ -162,7 +174,7 @@ def create_ca_int_wall_wtcbF3(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     int_wall = ConstructionAssembly.create(
         ID=f'int_wall_wtcbF3 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -190,12 +202,16 @@ def create_ca_int_wall_wtcbF3(t_ins: Quantity) -> ConstructionAssembly:
 # INTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F4
 # ------------------------------------------------------------------------------
 
-def create_ca_int_wall_wtcbF4(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_int_wall_wtcbF4(
+    t_ins: Quantity,
+    T_adj: Quantity = Q_(10, 'degC'),
+    T_int: Quantity = Q_(20, 'degC')
+) -> ConstructionAssembly:
     adj_surf_film = SurfaceLayer.create(
         ID='adj_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24, 'degC'),
+        Tmn=T_adj,
     )
     insulation = BuildingComponent.create(
         ID='insulation',
@@ -216,7 +232,7 @@ def create_ca_int_wall_wtcbF4(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     int_wall = ConstructionAssembly.create(
         ID=f'int_wall_wtcbF4 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -244,12 +260,16 @@ def create_ca_int_wall_wtcbF4(t_ins: Quantity) -> ConstructionAssembly:
 # INTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F5
 # ------------------------------------------------------------------------------
 
-def create_ca_int_wall_wtcbF5(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_int_wall_wtcbF5(
+    t_ins: Quantity,
+    T_adj: Quantity = Q_(10, 'degC'),
+    T_int: Quantity = Q_(20, 'degC')
+) -> ConstructionAssembly:
     adj_surf_film = SurfaceLayer.create(
         ID='adj_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24, 'degC'),
+        Tmn=T_adj
     )
     insulation = BuildingComponent.create(
         ID='insulation',
@@ -270,7 +290,7 @@ def create_ca_int_wall_wtcbF5(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     int_wall = ConstructionAssembly.create(
         ID=f'int_wall_wtcbF5 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -298,12 +318,16 @@ def create_ca_int_wall_wtcbF5(t_ins: Quantity) -> ConstructionAssembly:
 # INTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F6
 # ------------------------------------------------------------------------------
 
-def create_ca_int_wall_wtcbF6(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_int_wall_wtcbF6(
+    t_ins: Quantity,
+    T_adj: Quantity = Q_(10, 'degC'),
+    T_int: Quantity = Q_(20, 'degC')
+) -> ConstructionAssembly:
     adj_surf_film = SurfaceLayer.create(
         ID='adj_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24, 'degC'),
+        Tmn=T_adj
     )
     insulation = BuildingComponent.create(
         ID='insulation',
@@ -324,7 +348,7 @@ def create_ca_int_wall_wtcbF6(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     int_wall = ConstructionAssembly.create(
         ID=f'int_wall_wtcbF6 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -352,12 +376,16 @@ def create_ca_int_wall_wtcbF6(t_ins: Quantity) -> ConstructionAssembly:
 # INTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F7
 # ------------------------------------------------------------------------------
 
-def create_ca_int_wall_wtcbF7(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_int_wall_wtcbF7(
+    t_ins: Quantity,
+    T_adj: Quantity = Q_(10, 'degC'),
+    T_int: Quantity = Q_(20, 'degC')
+) -> ConstructionAssembly:
     adj_surf_film = SurfaceLayer.create(
         ID='adj_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24, 'degC'),
+        Tmn=T_adj
     )
     insulation = BuildingComponent.create(
         ID='insulation',
@@ -378,7 +406,7 @@ def create_ca_int_wall_wtcbF7(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     int_wall = ConstructionAssembly.create(
         ID=f'int_wall_wtcbF7 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -406,12 +434,16 @@ def create_ca_int_wall_wtcbF7(t_ins: Quantity) -> ConstructionAssembly:
 # INTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F8
 # ------------------------------------------------------------------------------
 
-def create_ca_int_wall_wtcbF8(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_int_wall_wtcbF8(
+    t_ins: Quantity,
+    T_adj: Quantity = Q_(10, 'degC'),
+    T_int: Quantity = Q_(20, 'degC')
+) -> ConstructionAssembly:
     adj_surf_film = SurfaceLayer.create(
         ID='adj_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24, 'degC'),
+        Tmn=T_adj
     )
     wall = BuildingComponent.create(
         ID='wall',
@@ -432,7 +464,7 @@ def create_ca_int_wall_wtcbF8(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     int_wall = ConstructionAssembly.create(
         ID=f'int_wall_wtcbF8 (t_ins={t_ins.to("cm"):~P.0f})',
@@ -460,12 +492,16 @@ def create_ca_int_wall_wtcbF8(t_ins: Quantity) -> ConstructionAssembly:
 # INTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F9
 # ------------------------------------------------------------------------------
 
-def create_ca_int_wall_wtcbF9(t_ins: Quantity) -> ConstructionAssembly:
+def create_ca_int_wall_wtcbF9(
+    t_ins: Quantity,
+    T_adj: Quantity = Q_(10, 'degC'),
+    T_int: Quantity = Q_(20, 'degC')
+) -> ConstructionAssembly:
     adj_surf_film = SurfaceLayer.create(
         ID='adj_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24, 'degC'),
+        Tmn=T_adj
     )
     gypsum_board_01 = BuildingComponent.create(
         ID='gypsum_board_01',
@@ -493,7 +529,7 @@ def create_ca_int_wall_wtcbF9(t_ins: Quantity) -> ConstructionAssembly:
         ID='int_surf_film',
         geometry=Geometry(),
         heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-        Tmn=Q_(24.0, 'degC')
+        Tmn=T_int
     )
     int_wall = ConstructionAssembly.create(
         ID=f'int_wall_wtcbF9 (t_ins={t_ins.to("cm"):~P.0f})',
