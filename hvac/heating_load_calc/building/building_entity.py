@@ -22,6 +22,16 @@ class BuildingEntity:
         ID: str,
         T_ext_d: Quantity
     ) -> BuildingEntity:
+        """
+        Create new building entity.
+
+        Parameters
+        ----------
+        ID: str
+            Name for the building entity.
+        T_ext_d: Quantity
+            Design value of the outdoor air temperature.
+        """
         self = cls()
         self.ID = ID
         self.T_ext_d = T_ext_d
@@ -115,7 +125,7 @@ class BuildingEntity:
         Q_trm = sum(
             hs.get_transmission_heat_loss()
             for vz in self.ventilation_zones.values()
-            for hs in vz.heated_spaces.values()
+            for hs in vz.spaces.values()
         )
         return Q_trm
 
@@ -130,7 +140,7 @@ class BuildingEntity:
         Q_hu = sum(
             hs.get_additional_heating_up_power()
             for vz in self.ventilation_zones.values()
-            for hs in vz.heated_spaces.values()
+            for hs in vz.spaces.values()
         )
         return Q_hu
 
@@ -141,6 +151,10 @@ class BuildingEntity:
         return Q_trm + Q_ven + Q_hu
 
     def get_summary(self, unit: str = 'kW', n_digits: int = 3) -> pd.DataFrame:
+        """
+        Returns a Pandas DataFrame with a summary of the ventilation zones
+        in the building entity.
+        """
         col_1 = 'ventilation zone'
         col_2 = f'Q transmission [{unit}]'
         col_3 = f'Q ventilation [{unit}]'

@@ -5,6 +5,9 @@ from ..cooling_load_calc.core import (
     Material,
     HeatFlowDirection,
     MechanicalFastening,
+    SurfaceLayer,
+    BuildingComponent,
+    AirSpace,
     ConstructionAssembly
 )
 from ..cooling_load_calc.shelves import (

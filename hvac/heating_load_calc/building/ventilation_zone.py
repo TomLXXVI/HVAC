@@ -3,7 +3,7 @@ from __future__ import annotations
 import pandas as pd
 from hvac import Quantity
 
-from .heated_space import HeatedSpace
+from .space import HeatedSpace, UnheatedSpace
 
 
 Q_ = Quantity
@@ -25,6 +25,7 @@ class VentilationZone:
         self._T_sup: Quantity | None = None
         self.eff_heat_recover: Quantity = Q_(90.0, 'pct')
         self.heated_spaces: dict[str, HeatedSpace] = {}
+        self.unheated_spaces: dict[str, UnheatedSpace] = {}
 
     @classmethod
     def create(
@@ -224,6 +225,60 @@ class VentilationZone:
         self.heated_spaces[hs.ID] = hs
         return hs
 
+    def add_unheated_space(
+        self,
+        ID: str,
+        height: Quantity,
+        area: Quantity,
+        volume: Quantity | None = None,
+        T_int_d: Quantity = Q_(20.0, 'degC'),
+        grad_T_air: Quantity = Q_(1.0, 'K / m'),
+        height_occ_zone: Quantity = Q_(1.0, 'm'),
+        dT_surf: Quantity = Q_(0.0, 'K'),
+        dT_rad: Quantity = Q_(0.0, 'K'),
+        n_min: Quantity = Q_(0.5, '1 / hr'),
+        V_atd_d: Quantity | None = None,
+        V_exh: Quantity | None = None,
+        V_comb: Quantity | None = None,
+        V_sup: Quantity | None = None,
+        V_trf: Quantity | None = None,
+        V_open: Quantity | None = None,
+        T_trf: Quantity | None = None,
+    ):
+        """
+        Add unheated space to ventilation zone.
+        For explanation of parameters, see docstring of `add_heated_space`.
+        """
+        uhs = UnheatedSpace.create(
+            ID=ID,
+            height=height,
+            area=area,
+            volume=volume,
+            T_int_d=T_int_d,
+            T_ext_d=self.T_ext_d,
+            grad_T_air=grad_T_air,
+            height_occ_zone=height_occ_zone,
+            dT_surf=dT_surf,
+            dT_rad=dT_rad,
+            n_min=n_min,
+            V_atd_d=V_atd_d,
+            V_exh=V_exh,
+            V_comb=V_comb,
+            V_sup=V_sup,
+            V_trf=V_trf,
+            V_open=V_open,
+            T_trf=T_trf,
+            vz=self
+        )
+        self.unheated_spaces[uhs.ID] = uhs
+        return uhs
+
+    @property
+    def spaces(self) -> dict[str, HeatedSpace | UnheatedSpace]:
+        spaces = dict(self.heated_spaces)
+        spaces.update(self.unheated_spaces)
+        return spaces
+
     @property
     def V_atd_d(self) -> Quantity:
         """
@@ -234,9 +289,9 @@ class VentilationZone:
             V_atd_d = self._V_atd_d
         else:
             V_atd_d = sum(
-                hs.V_atd_d
-                for hs in self.heated_spaces.values()
-                if hs.V_atd_d is not None
+                sp.V_atd_d
+                for sp in self.spaces.values()
+                if sp.V_atd_d is not None
             )
             if isinstance(V_atd_d, int):
                 V_atd_d = Q_(0.0, 'm ** 3 / hr')
@@ -255,34 +310,34 @@ class VentilationZone:
     def A_env(self) -> Quantity:
         """Envelope area of the zone."""
         A_env = sum(
-            hs.A_env for hs in self.heated_spaces.values()
+            sp.A_env for sp in self.spaces.values()
         )
         return A_env or Q_(0.0, 'm ** 2')
 
     @property
     def V_exh(self) -> Quantity:
         V_exh = sum(
-            hs.V_exh
-            for hs in self.heated_spaces.values()
-            if hs.V_exh is not None
+            sp.V_exh
+            for sp in self.spaces.values()
+            if sp.V_exh is not None
         )
         return V_exh or Q_(0.0, 'm ** 3 / hr')
 
     @property
     def V_comb(self) -> Quantity:
         V_comb = sum(
-            hs.V_comb
-            for hs in self.heated_spaces.values()
-            if hs.V_comb is not None
+            sp.V_comb
+            for sp in self.spaces.values()
+            if sp.V_comb is not None
         )
         return V_comb or Q_(0.0, 'm ** 3 / hr')
 
     @property
     def V_sup(self) -> Quantity:
         V_sup = sum(
-            hs.V_sup
-            for hs in self.heated_spaces.values()
-            if hs.V_sup is not None
+            sp.V_sup
+            for sp in self.spaces.values()
+            if sp.V_sup is not None
         )
         return V_sup or Q_(0.0, 'm ** 3 / hr')
 
@@ -341,10 +396,10 @@ class VentilationZone:
 
     @property
     def T_exh(self) -> Quantity | None:
-        if V_exh := sum(hs.V_exh for hs in self.heated_spaces.values()):
+        if V_exh := sum(sp.V_exh for sp in self.spaces.values()):
             T_exh = sum(
-                hs.V_exh * hs.T_int_air.to('K')
-                for hs in self.heated_spaces.values()
+                sp.V_exh * sp.T_int_air.to('K')
+                for sp in self.spaces.values()
             ) / V_exh
             return T_exh
         return None
@@ -361,11 +416,11 @@ class VentilationZone:
     def get_ventilation_heat_loss(self) -> Quantity:
         rho_cp = Q_(0.34, 'W * hr / (m ** 3 * K)')
         Q_ven = rho_cp * sum(
-            max(hs.V_leak_atd + hs.V_open, self.f_iz * hs.V_min - hs.V_tech) *
-            (hs.T_int_air - hs.T_ext_d) +
-            hs.V_sup * (hs.T_int_air - hs.T_sup) +
-            hs.V_trf * (hs.T_int_air - hs.T_trf)
-            for hs in self.heated_spaces.values()
+            max(sp.V_leak_atd + sp.V_open, self.f_iz * sp.V_min - sp.V_tech) *
+            (sp.T_int_air - sp.T_ext_d) +
+            sp.V_sup * (sp.T_int_air - sp.T_sup) +
+            sp.V_trf * (sp.T_int_air - sp.T_trf)
+            for sp in self.spaces.values()
         )
         return Q_ven
 
@@ -390,6 +445,11 @@ class VentilationZone:
         return Q_trm + Q_ven + Q_hu
 
     def get_summary(self, unit: str = 'kW', n_digits: int = 3) -> pd.DataFrame:
+        """
+        Returns a pandas DataFrame with an overview of the heated spaces in the
+        ventilation zone together with their transmission heat loss, ventilation
+        heat loss, additional heating up power, and total heating load.
+        """
         col_1 = 'heated space'
         col_2 = f'Q transmission [{unit}]'
         col_3 = f'Q ventilation [{unit}]'

@@ -46,7 +46,7 @@ def main():
     ):
         print(WindowPropertiesShelf.overview(detailed=True))
 
-    WindowPropertiesShelf.export_to_excel(str(db_path) + 'windows.ods')
+    WindowPropertiesShelf.export_to_excel(str(db_path / 'windows.ods'))
 
 
 if __name__ == '__main__':

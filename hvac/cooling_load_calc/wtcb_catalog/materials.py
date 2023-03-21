@@ -53,7 +53,7 @@ def main():
         'display.width', None
     ):
         print(MaterialsShelf.overview(detailed=True))
-    MaterialsShelf.export_to_excel(str(db_path) + 'materials.ods')
+    MaterialsShelf.export_to_excel(str(db_path / 'materials.ods'))
 
 
 if __name__ == '__main__':

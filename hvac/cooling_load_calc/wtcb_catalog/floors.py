@@ -278,7 +278,7 @@ def main():
     ):
         print(ConstructionAssembliesShelf.overview(detailed=True))
 
-    ConstructionAssembliesShelf.export_to_excel(str(db_path) + 'construction_assemblies.ods')
+    ConstructionAssembliesShelf.export_to_excel(str(db_path / 'construction_assemblies.ods'))
 
 
 if __name__ == '__main__':

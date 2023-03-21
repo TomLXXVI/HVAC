@@ -71,18 +71,18 @@ class AbstractBuildingElement(ABC):
             Temperature on the other side of the building element.
             If other side is...
             --> the exterior:
-            T_ext_d (i.e. the default, you can skip setting parameter `T_adj`)
+                T_ext_d (i.e. the default, you can skip setting parameter `T_adj`)
             --> an adjacent heated space within the same building entity:
-            T_int_d of adjacent space.
+                T_int_d of adjacent space.
             --> an adjacent building entity within the same building:
-            T_ext_an (acc. to NBN EN 12831-1 ANB NA.5.4)
+                T_ext_an (acc. to NBN EN 12831-1 ANB NA.5.4)
             --> the ground:
-            T_ext_an (acc. to NBN EN 12831-1 §6.3.2.5 - Table 7)
+                T_ext_an (acc. to NBN EN 12831-1 §6.3.2.5 - Table 7)
             --> an adjacent unheated space:
-            set parameter `f1` acc. to NBN EN 12831-1, B.2.4 - Table B.2 or
-            use NBN EN 12831-1 ANB NA.5.5 - Table NA.4
+                set parameter `f1` acc. to NBN EN 12831-1, B.2.4 - Table B.2 or
+                use NBN EN 12831-1 ANB NA.5.5 - Table NA.4
             --> an adjacent building:
-            max(T_ext_an, 5 °C) or use NBN EN 12831-1 ANB NA.5.6 - Table NA.5
+                max(T_ext_an, 5 °C) or use NBN EN 12831-1 ANB NA.5.6 - Table NA.5
         f1: Quantity, default None
             Adjustment factor for differences between the temperature of an
             adjacent space and the external design temperature.
@@ -213,7 +213,7 @@ class ExteriorBuildingElement(AbstractBuildingElement):
     def H(self) -> Quantity:
         H = self.A * (self.U + self.dU_tb) * self.f_U * self.f_T
         H += sum(be.H for be in self.building_elements.values()) or Q_(0.0, 'W / K')
-        return H
+        return H.to('W / K')
 
 
 class AdjacentBuildingElement(AbstractBuildingElement):
@@ -263,14 +263,14 @@ class AdjacentBuildingElement(AbstractBuildingElement):
             Temperature on the other side of the building element.
             If other side is...
             - an adjacent heated space within the same building entity:
-            T_int_d of adjacent space.
+                T_int_d of adjacent space.
             - an adjacent building entity within the same building:
-            T_ext_an (acc. to NBN EN 12831-1 ANB NA.5.4)
+                T_ext_an (acc. to NBN EN 12831-1 ANB NA.5.4)
             - an adjacent unheated space:
-            set parameter `f1` acc. to NBN EN 12831-1, B.2.4 - Table B.2 or
-            use NBN EN 12831-1 ANB NA.5.5 - Table NA.4
+                set parameter `f1` acc. to NBN EN 12831-1, B.2.4 - Table B.2 or
+                use NBN EN 12831-1 ANB NA.5.5 - Table NA.4
             - an adjacent building:
-            max(T_ext_an, 5 °C) or use NBN EN 12831-1 ANB NA.5.6 - Table NA.5
+                max(T_ext_an, 5 °C) or use NBN EN 12831-1 ANB NA.5.6 - Table NA.5
         f1: Quantity, default None
             Adjustment factor for differences between the temperature of an
             adjacent space and the external design temperature.
@@ -313,7 +313,7 @@ class AdjacentBuildingElement(AbstractBuildingElement):
     def H(self) -> Quantity:
         H = self.A * self.U * self.f_T
         H += sum(be.H for be in self.building_elements.values()) or Q_(0.0, 'W / K')
-        return H
+        return H.to('W / K')
 
 
 class GroundBuildingElement(AbstractBuildingElement):
@@ -418,4 +418,5 @@ class GroundBuildingElement(AbstractBuildingElement):
 
     @property
     def H(self) -> Quantity:
-        return self.f_dT_an.m * self.A * self.U_equiv * self.f_T * self.f_gw.m
+        H = self.f_dT_an.m * self.A * self.U_equiv * self.f_T * self.f_gw.m
+        return H.to('W / K')

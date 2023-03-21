@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 Q_ = Quantity
 
 
-class HeatedSpace:
+class UnheatedSpace:
 
     def __init__(self):
         self.ID: str = ''
@@ -37,7 +37,6 @@ class HeatedSpace:
         self.V_trf: Quantity | None = None
         self.V_open: Quantity | None = None
         self.T_trf: Quantity | None = None
-        self.q_hu: Quantity | None = None
         self.vz: VentilationZone | None = None
         self.building_elements: dict[str, list[TBuildingElement]] = {
             'exterior': [],
@@ -46,6 +45,248 @@ class HeatedSpace:
             'adjacent_building_entity': [],
             'ground': []
         }
+
+    @classmethod
+    def create(
+        cls,
+        ID: str,
+        height: Quantity,
+        area: Quantity,
+        volume: Quantity | None = None,
+        T_int_d: Quantity = Q_(20.0, 'degC'),
+        T_ext_d: Quantity = Q_(-10.0, 'degC'),
+        grad_T_air: Quantity = Q_(1.0, 'K / m'),
+        height_occ_zone: Quantity = Q_(1.0, 'm'),
+        dT_surf: Quantity = Q_(0.0, 'K'),
+        dT_rad: Quantity = Q_(0.0, 'K'),
+        n_min: Quantity = Q_(0.5, '1 / hr'),
+        V_atd_d: Quantity | None = None,
+        V_exh: Quantity | None = None,
+        V_comb: Quantity | None = None,
+        V_sup: Quantity | None = None,
+        V_trf: Quantity | None = None,
+        V_open: Quantity | None = None,
+        T_trf: Quantity | None = None,
+        vz: VentilationZone | None = None
+    ) -> UnheatedSpace:
+        """
+        Create unheated space.
+
+        Parameters
+        ----------
+        ID: str
+            Name of heated space.
+        height: Quantity
+            Mean height of the heated space.
+        area: Quantity
+            Floor area of the heated space.
+        volume: Quantity, default None
+            Volume of the heated space. If not given, will be calculated as the
+            product of `height` and `area`.
+        T_int_d: Quantity, default 20 degC
+            Design value of indoor air temperature of the heated space.
+        T_ext_d: Quantity, default -10 degC
+            Design value of outdoor air temperature.
+        grad_T_air: Quantity, default 1 K/m
+            Air temperature gradient of the heat emission system used in the room.
+            Only relevant if `height` >= 4 m (see NBN EN 12831-1, B.2.6).
+        height_occ_zone: Quantity, default 1 m
+            Height of the occupied zone in the heated space.
+            Only relevant if `height` >= 4 m (see NBN EN 12831-1, B.2.6).
+        dT_surf: Quantity, default 0.0 K
+            Correction term for the influence of the heat emission system on
+            surface temperatures.
+            Only relevant if `height` >= 4 m (see NBN EN 12831-1, B.2.6).
+        dT_rad: Quantity, default 0.0 K
+            Difference between air and operative temperature (which can be
+            approximated as the arithmetic average of air and mean radiant
+            temperature).
+            Only relevant if `height` >= 4 m (see NBN EN 12831-1, B.2.6).
+        n_min: Quantity, default 0.5 1/hr
+            Minimum air change rate required for the heated space for reasons of
+            air quality/hygiene and comfort (NBN EN 12831-1, B.2.10 - Table B.7).
+            Default value applies to permanent dwelling areas (living rooms,
+            offices) and a ceiling height less than 3 m.
+        V_atd_d: Quantity, default None
+            Design air volume flow rate of the ATDs in the room
+            (NBN EN 12831-1, B.2.12).
+            Only required if ATDs are used for ventilation.
+        V_exh: Quantity, default None
+            Exhaust ventilation air volume flow rate from the heated space.
+        V_comb: Quantity, default None
+            Air volume flow rate exhausted from the heated space that has not
+            been included in the exhaust air volume flow of the ventilation
+            system (typically, but not necessarily, combustion air if an open
+            flue heater is present in the heated space).
+        V_sup: Quantity, default None
+            Supply air volume flow rate from the ventilation system into the
+            heated space.
+        V_trf: Quantity, default None
+            Transfer air volume flow rate into the heated space from adjacent
+            spaces.
+        V_open: Quantity, default None
+            External air volume flow rate into the heated space through large
+            openings (NBN EN 12831-1, Annex G).
+        T_trf: Quantity, default None
+            Temperature of the transfer air volume flow into the heated space
+            from another space. In case the room height of the other space is
+            less than 4 m, it is equal to the internal design temperature of
+            the other space; otherwise, it is equal to mean air temperature of
+            the other space (see NBN EN 12831-1 §6.3.8.3).
+        vz: VentilationZone, default None
+            The ventilation zone of which the heated space is part of.
+        """
+        self = cls()
+        self.ID = ID
+        self.height = height
+        self.area = area
+        self.volume = volume or self.height * self.area
+        self.T_int_d = T_int_d
+        self.T_ext_d = T_ext_d
+        self.grad_T_air = grad_T_air
+        self.height_occ_zone = height_occ_zone
+        self.dT_surf = dT_surf
+        self.dT_rad = dT_rad
+        self.n_min = n_min
+        self.V_atd_d = V_atd_d or Q_(0.0, 'm ** 3 / hr')
+        self.V_exh = V_exh or Q_(0.0, 'm ** 3 / hr')
+        self.V_comb = V_comb or Q_(0.0, 'm ** 3 / hr')
+        self.V_sup = V_sup or Q_(0.0, 'm ** 3 / hr')
+        self.V_trf = V_trf or Q_(0.0, 'm ** 3 / hr')
+        self.V_open = V_open or Q_(0.0, 'm ** 3 / hr')
+        self.T_trf = T_trf if T_trf is not None else self.T_int_air
+        self.vz = vz
+        return self
+
+    # noinspection PyIncorrectDocstring
+    def add_exterior_building_element(
+        self,
+        ID: str,
+        area: Quantity | tuple[Quantity, Quantity],
+        _, **kwargs
+    ) -> ExteriorBuildingElement:
+        """
+        Add new exterior building element to the heated space.
+
+        Parameters
+        ----------
+        ID: str
+            Name to identify building element.
+        area: Quantity or tuple of 2 Quantities
+            Area of the building element. In case a tuple is given, the elements
+            are considered to be the width and length or height of the building
+            element.
+
+        Returns
+        -------
+        The newly added exterior building element (to allow for adding doors
+        and/or windows to the building element).
+        """
+        ext_build_elem = ExteriorBuildingElement.create(
+            ID=ID,
+            area=area,
+            construction_assembly=ConstructionAssembly(),
+            T_int_d=self.T_int_d,
+            T_int_surf=self.T_int_surf,
+            T_ext_d=self.T_ext_d,
+            dU_tb=Q_(0.0, 'W / (m ** 2 * K)'),
+            f_U=Q_(1.0, 'frac')
+        )
+        self.building_elements['exterior'].append(ext_build_elem)
+        return ext_build_elem
+
+    @property
+    def T_int_air(self):
+        """Mean internal air temperature."""
+        if self.height.to('m').m >= 4.0:
+            return (
+                self.T_int_d.to('K') +
+                self.grad_T_air * (self.height / 2 - self.height_occ_zone) +
+                self.dT_rad
+            )
+        else:
+            return self.T_int_d
+
+    @property
+    def T_int_surf(self):
+        """Mean internal surface temperature."""
+        if self.height.to('m').m >= 4.0:
+            return (
+                self.T_int_d.to('K') +
+                self.grad_T_air * (self.height - self.height_occ_zone) +
+                self.dT_surf
+            )
+        else:
+            return self.T_int_d
+
+    @property
+    def A_env(self) -> Quantity:
+        """Envelope area of the heated space."""
+        A_env = (
+            sum(be.area_gross for be in self.building_elements['exterior'])
+            or Q_(0.0, 'm ** 2')
+        )
+        return A_env
+
+    @property
+    def V_leak_atd(self) -> Quantity:
+        """External air volume flow rate into the heated space through leakages
+        and ATDs."""
+        if self.vz.V_atd_d:
+            V_leak_atd = (
+                self.vz.V_leak * (self.A_env / self.vz.A_env) +
+                self.vz.V_atd * (self.V_atd_d / self.vz.V_atd_d)
+            )
+        else:
+            V_leak_atd = self.vz.V_leak * (self.A_env / self.vz.A_env)
+        return V_leak_atd
+
+    @property
+    def V_env(self) -> Quantity:
+        """External air volume flow rate into the heated space through the
+        building envelope."""
+        V_env = (
+            (self.vz.V_inf_add / self.vz.V_env) *
+            min(self.vz.V_env, self.V_leak_atd * self.vz.f_dir) +
+            (self.vz.V_env - self.vz.V_inf_add) * self.V_leak_atd /
+            self.vz.V_env
+        )
+        return V_env
+
+    @property
+    def V_tech(self) -> Quantity:
+        """Technical air volume flow rate into the heated space."""
+        V_tech = max(self.V_sup + self.V_trf, self.V_exh + self.V_comb)
+        return V_tech
+
+    @property
+    def V_min(self) -> Quantity:
+        """Minimum air volume flow required for reasons of air quality/hygiene
+        and comfort."""
+        V_min = self.n_min * self.volume
+        return V_min
+
+    @property
+    def T_sup(self) -> Quantity:
+        return self.vz.T_sup or self.T_int_air
+
+    def get_ventilation_heat_loss(self) -> Quantity:
+        """Get ventilation heat loss of the heated space."""
+        rho_cp = Q_(0.34, 'W * hr / (m ** 3 * K)')
+        Q_ven = rho_cp * (
+            max(self.V_env + self.V_open, self.V_min - self.V_tech) *
+            (self.T_int_air - self.T_ext_d) +
+            self.V_sup * (self.T_int_air - self.T_sup) +
+            self.V_trf * (self.T_int_air - self.T_trf)
+        )
+        return Q_ven
+
+
+class HeatedSpace(UnheatedSpace):
+
+    def __init__(self):
+        super().__init__()
+        self.q_hu: Quantity | None = None
 
     @classmethod
     def create(
@@ -143,18 +384,15 @@ class HeatedSpace:
         """
         self = cls()
         self.ID = ID
-
         self.height = height
         self.area = area
         self.volume = volume or self.height * self.area
-
         self.T_int_d = T_int_d
         self.T_ext_d = T_ext_d
         self.grad_T_air = grad_T_air
         self.height_occ_zone = height_occ_zone
         self.dT_surf = dT_surf
         self.dT_rad = dT_rad
-
         self.n_min = n_min
         self.V_atd_d = V_atd_d or Q_(0.0, 'm ** 3 / hr')
         self.V_exh = V_exh or Q_(0.0, 'm ** 3 / hr')
@@ -162,36 +400,10 @@ class HeatedSpace:
         self.V_sup = V_sup or Q_(0.0, 'm ** 3 / hr')
         self.V_trf = V_trf or Q_(0.0, 'm ** 3 / hr')
         self.V_open = V_open or Q_(0.0, 'm ** 3 / hr')
-        self.T_trf = T_trf or self.T_int_air
-
-        self.q_hu = q_hu or Q_(0.0, 'W / m ** 2')
-
+        self.T_trf = T_trf if T_trf is not None else self.T_int_air
         self.vz = vz
+        self.q_hu = q_hu or Q_(0.0, 'W / m ** 2')
         return self
-
-    @property
-    def T_int_air(self):
-        """Mean internal air temperature."""
-        if self.height.to('m').m >= 4.0:
-            return (
-                self.T_int_d.to('K') +
-                self.grad_T_air * (self.height / 2 - self.height_occ_zone) +
-                self.dT_rad
-            )
-        else:
-            return self.T_int_d
-
-    @property
-    def T_int_surf(self):
-        """Mean internal surface temperature."""
-        if self.height.to('m').m >= 4.0:
-            return (
-                self.T_int_d.to('K') +
-                self.grad_T_air * (self.height - self.height_occ_zone) +
-                self.dT_surf
-            )
-        else:
-            return self.T_int_d
 
     def add_exterior_building_element(
         self,
@@ -270,14 +482,14 @@ class HeatedSpace:
             Temperature on the other side of the building element.
             If other side is...
             - an adjacent heated space within the same building entity:
-            T_int_d of adjacent space.
+                T_int_d of adjacent space.
             - an adjacent building entity within the same building:
-            T_ext_an (acc. to NBN EN 12831-1 ANB NA.5.4)
+                T_ext_an (acc. to NBN EN 12831-1 ANB NA.5.4)
             - an adjacent unheated space:
-            set parameter `f1` acc. to NBN EN 12831-1, B.2.4 - Table B.2 or
-            use NBN EN 12831-1 ANB NA.5.5 - Table NA.4
+                set parameter `f1` acc. to NBN EN 12831-1, B.2.4 - Table B.2 or
+                use NBN EN 12831-1 ANB NA.5.5 - Table NA.4
             - an adjacent building:
-            max(T_ext_an, 5 °C) or use NBN EN 12831-1 ANB NA.5.6 - Table NA.5
+                max(T_ext_an, 5 °C) or use NBN EN 12831-1 ANB NA.5.6 - Table NA.5
         f1: Quantity, default None
             Adjustment factor for differences between the temperature of an
             adjacent space and the external design temperature.
@@ -441,68 +653,6 @@ class HeatedSpace:
             return self.H_Tiae * dT_d
         elif x == 'ground':
             return self.H_Tig * dT_d
-
-    @property
-    def A_env(self) -> Quantity:
-        """Envelope area of the heated space."""
-        A_env = (
-            sum(be.area_gross for be in self.building_elements['exterior'])
-            or Q_(0.0, 'm ** 2')
-        )
-        return A_env
-
-    @property
-    def V_leak_atd(self) -> Quantity:
-        """External air volume flow rate into the heated space through leakages
-        and ATDs."""
-        if self.vz.V_atd_d:
-            V_leak_atd = (
-                self.vz.V_leak * (self.A_env / self.vz.A_env) +
-                self.vz.V_atd * (self.V_atd_d / self.vz.V_atd_d)
-            )
-        else:
-            V_leak_atd = self.vz.V_leak * (self.A_env / self.vz.A_env)
-        return V_leak_atd
-
-    @property
-    def V_env(self) -> Quantity:
-        """External air volume flow rate into the heated space through the
-        building envelope."""
-        V_env = (
-            (self.vz.V_inf_add / self.vz.V_env) *
-            min(self.vz.V_env, self.V_leak_atd * self.vz.f_dir) +
-            (self.vz.V_env - self.vz.V_inf_add) * self.V_leak_atd /
-            self.vz.V_env
-        )
-        return V_env
-
-    @property
-    def V_tech(self) -> Quantity:
-        """Technical air volume flow rate into the heated space."""
-        V_tech = max(self.V_sup + self.V_trf, self.V_exh + self.V_comb)
-        return V_tech
-
-    @property
-    def V_min(self) -> Quantity:
-        """Minimum air volume flow required for reasons of air quality/hygiene
-        and comfort."""
-        V_min = self.n_min * self.volume
-        return V_min
-
-    @property
-    def T_sup(self) -> Quantity:
-        return self.vz.T_sup or self.T_int_air
-
-    def get_ventilation_heat_loss(self) -> Quantity:
-        """Get ventilation heat loss of the heated space."""
-        rho_cp = Q_(0.34, 'W * hr / (m ** 3 * K)')
-        Q_ven = rho_cp * (
-            max(self.V_env + self.V_open, self.V_min - self.V_tech) *
-            (self.T_int_air - self.T_ext_d) +
-            self.V_sup * (self.T_int_air - self.T_sup) +
-            self.V_trf * (self.T_int_air - self.T_trf)
-        )
-        return Q_ven
 
     def get_additional_heating_up_power(self) -> Quantity:
         """Get additional heating-up power for the heated space."""

@@ -37,12 +37,40 @@ class Building:
 
     @classmethod
     def create(cls, ID: str, climate_data: ClimateDesignData) -> Building:
+        """
+        Creates a new building.
+
+        Parameters
+        ----------
+        ID: str
+            Name of the building.
+        climate_data: ClimateDesignData
+            Instance of `ClimateDesignData` with the climate data at the
+            geographical location of the building needed to a perform a
+            heat load calculation.
+
+        Returns
+        -------
+        Instance of class `Building`.
+        """
         self = cls()
         self.ID = ID
         self.climate_data = climate_data
         return self
 
     def add_building_entity(self, ID: str) -> BuildingEntity:
+        """
+        Adds a new building entity to the building.
+
+        Parameters
+        ----------
+        ID: str
+            Name of the building entity.
+
+        Returns
+        -------
+        Instance of class `BuildingEntity`.
+        """
         be = BuildingEntity.create(ID, self.climate_data.T_ext_d)
         self.building_entities[be.ID] = be
         return be
@@ -76,6 +104,17 @@ class Building:
         return Q_trm + Q_ven + Q_hu
 
     def get_summary(self, unit: str = 'kW', n_digits: int = 3) -> pd.DataFrame:
+        """
+        Returns a Pandas Dataframe with an overview of the building entities
+        in the building.
+
+        Parameters
+        ----------
+        unit: str
+            Desired unit of thermal power.
+        n_digits: int
+            The number of decimals displayed in the numeric results.
+        """
         col_1 = 'building entity'
         col_2 = f'Q transmission [{unit}]'
         col_3 = f'Q ventilation [{unit}]'
