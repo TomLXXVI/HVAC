@@ -54,6 +54,10 @@ class Geometry:
     w: Quantity = Q_(float('inf'), 'm')
     h: Quantity = Q_(float('inf'), 'm')
 
+    def __post_init__(self):
+        if self.w != float('inf') and self.h != float('inf'):
+            self.A = self.w * self.h
+
 
 class HeatFlowDirection(Enum):
     HORIZONTAL = 'horizontal'

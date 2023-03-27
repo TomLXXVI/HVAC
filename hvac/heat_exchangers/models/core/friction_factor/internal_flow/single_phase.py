@@ -1,8 +1,8 @@
 import numpy as np
-from heat_exchanger import Quantity
-from heat_exchanger.fluids import FluidState
-from heat_exchanger.geometry import CoilGeometry
-from heat_exchanger.heat_transfer.internal_flow import single_phase
+from hvac import Quantity
+from hvac.fluids import FluidState
+from hvac.heat_exchangers.models.core.geometry import CoilGeometry
+from hvac.heat_exchangers.models.core.heat_transfer.internal_flow import single_phase
 
 Q_ = Quantity
 
